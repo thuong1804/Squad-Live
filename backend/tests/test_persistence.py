@@ -114,6 +114,52 @@ def test_postgres_migrations_concurrency_and_restart():
             decisions = list(pool.map(decide, range(8)))
         assert decisions.count("accepted") == 1
         assert decisions.count("conflict") == 7
+        # Real PostgreSQL leases: concurrent workers must make only one BA call.
+        from threading import Event
+
+        from app.models.entities import AgentRun
+        from tests.test_ba_agent import Provider, seed_connection, settings
+
+        config = settings()
+        connection_id = seed_connection(sessions, config)
+        with sessions.begin() as session:
+            live_item = create_item(
+                session, project.id, WorkItemCreate(title="Live BA", description="Test"), "owner"
+            )
+            live_id = start(
+                session,
+                live_item.id,
+                "live-key",
+                "owner",
+                mode="ba_live",
+                settings=config,
+                connection_id=connection_id,
+            ).id
+        # Finish any earlier automatic mock step, then queue BA.
+        while tick(sessions, config, Provider()):
+            with sessions() as session:
+                if session.get(WorkflowRun, live_id).status == "ba_in_progress":
+                    break
+        entered, release = Event(), Event()
+
+        def slow_call():
+            entered.set()
+            assert release.wait(10)
+
+        provider = Provider(callback=slow_call)
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            first = pool.submit(tick, sessions, config, provider)
+            try:
+                assert entered.wait(10)
+                assert not any(pool.map(lambda _: tick(sessions, config, provider), range(6)))
+            finally:
+                release.set()
+            assert first.result()
+        assert len(provider.contexts) == 1
+        with sessions() as session:
+            assert session.get(WorkflowRun, live_id).status == "requirements_approval"
+            agents = session.scalars(select(AgentRun).where(AgentRun.run_id == live_id)).all()
+            assert len(agents) == 1 and agents[0].status == "succeeded"
         with test_engine.connect() as connection:
             assert compare_metadata(MigrationContext.configure(connection), Base.metadata) == []
     finally:

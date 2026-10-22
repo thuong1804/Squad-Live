@@ -1,4 +1,58 @@
 import { z } from "zod";
+export const capabilitiesSchema = z.object({
+  ba_live_available: z.boolean(),
+  provider: z.string().nullable(),
+  model: z.string().nullable(),
+  key_storage_available: z.boolean(),
+});
+export const connectionSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  provider: z.string(),
+  model: z.string(),
+  enabled: z.boolean(),
+  created_at: z.string(),
+});
+export const modelListSchema = z.object({ models: z.array(z.string()) });
+export const specificationSchema = z.object({
+  title: z.string(),
+  summary: z.string(),
+  user_stories: z.array(
+    z.object({
+      id: z.string(),
+      role: z.string(),
+      goal: z.string(),
+      benefit: z.string(),
+    }),
+  ),
+  acceptance_criteria: z.array(
+    z.object({
+      id: z.string(),
+      story_id: z.string(),
+      given: z.string(),
+      when: z.string(),
+      then: z.string(),
+    }),
+  ),
+  edge_cases: z.array(z.string()),
+  non_functional_requirements: z.array(z.string()),
+  open_questions: z.array(z.string()),
+  assumptions: z.array(z.string()),
+});
+export const agentRunSchema = z.object({
+  id: z.string(),
+  role: z.string(),
+  status: z.string(),
+  model: z.string(),
+  provider: z.string(),
+  revision: z.number(),
+  attempt: z.number(),
+  input_tokens: z.number().nullable(),
+  output_tokens: z.number().nullable(),
+  duration_ms: z.number().nullable(),
+  error_code: z.string().nullable(),
+  connection_id: z.string().nullable(),
+});
 const identity = { id: z.string(), created_at: z.string() };
 export const projectSchema = z.object({
   ...identity,

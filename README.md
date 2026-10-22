@@ -1,13 +1,17 @@
 # Squad Live
 
-PM dashboard và workflow backend cho đội AI BA/Dev/Tester. Hiện triển khai **Phase 2:
-workflow mô phỏng bền vững**, có yêu cầu chỉnh sửa, artifact theo phiên bản và ba gate
-phê duyệt. Chưa gọi LLM, chạy code/test của repository, tạo PR, merge hoặc deploy.
+PM dashboard và workflow backend cho đội AI BA/Dev/Tester. Hiện có **BA dùng LLM**
+khi kết nối API key riêng (OpenAI/Gemini/DeepSeek), yêu cầu chỉnh sửa, artifact theo phiên bản và ba gate phê duyệt.
+Mặc định chạy mô phỏng. Chế độ **Tạo website tĩnh** bổ sung Dev thật để lập kế hoạch,
+sinh HTML/CSS/JS, xem Preview và tải ZIP. Tester vẫn mô phỏng; chưa tạo PR, merge hoặc deploy.
 
 ## Tài liệu
 
 - [Đặc tả sản phẩm](docs/project_specification_ai_software_team_orchestration_platform.md)
 - [Hợp đồng Phase 2 và các quyết định tương thích](docs/04-VERTICAL-SLICE-CONTRACT.md)
+- [Phase 3: cấu hình và demo BA dùng AI](docs/05-BA-AGENT.md)
+- [Đăng nhập Google và chuyển dữ liệu PM cũ](docs/06-GOOGLE-LOGIN.md)
+- [Tạo website tĩnh · BA + Dev thật](docs/07-STATIC-WEBSITE.md)
 - [Frontend](frontend/README.md) · [Backend](backend/README.md)
 
 ## Khởi động local trên Windows
@@ -28,7 +32,7 @@ Set-Location backend
 ```
 
 `setup_local.py` tạo `.env` gốc và `backend/.env` khi chưa có, sinh password/token ngẫu
-nhiên và không in secret. Giữ nguyên file đã tồn tại. Cổng PostgreSQL mặc định do
+nhiên và không in secret. Giữ cấu hình đã có, bổ sung khóa mã hóa BYOK nếu thiếu. Cổng PostgreSQL mặc định do
 script tạo là **55432**, để tránh xung đột với dịch vụ khác. Nếu tự cấu hình, dùng các
 file `.env.example`; bảo đảm DATABASE_URL trỏ đúng database.
 
@@ -45,9 +49,10 @@ npm.cmd ci
 npm.cmd run dev
 ```
 
-Mở http://127.0.0.1:5173. Trong `backend/.env`, lấy **giá trị token** của `pm-local`
-trong `AUTH_TOKENS` và nhập vào ô Token truy cập (không nhập cả JSON hoặc tiền tố Bearer).
-Token chỉ tồn tại trong bộ nhớ tab; tải lại trang cần nhập lại. Không đưa token vào
+Điền `GOOGLE_CLIENT_ID` và `GOOGLE_CLIENT_SECRET` vào `backend/.env` theo
+[hướng dẫn Google OAuth](docs/06-GOOGLE-LOGIN.md), rồi restart API.
+Mở http://localhost:5173 và chọn **Đăng nhập bằng Google**. Phiên cookie HttpOnly
+được giữ khi tải lại trang; đăng xuất thu hồi phiên trên server. Không đưa secret vào
 `VITE_*`, commit hoặc log. `/health` kiểm tra tiến trình; `/ready` kiểm tra DB/migration.
 Worker phải đang chạy thì run mới chuyển bước. CORS mặc định hỗ trợ localhost và
 127.0.0.1 trên cổng 5173. Môi trường ngoài localhost phải dùng HTTPS.

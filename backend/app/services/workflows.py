@@ -4,6 +4,7 @@ from sqlalchemy import select
 
 from app.core.errors import DomainError, conflict
 from app.models.entities import (
+    AgentRun,
     Approval,
     Artifact,
     WorkflowEvent,
@@ -12,6 +13,7 @@ from app.models.entities import (
     new_id,
     now,
 )
+from app.services import ai_access
 from app.services.projects import item_for, project_for
 
 TERMINAL = {"completed", "failed", "cancelled"}
@@ -27,6 +29,7 @@ AUTOMATIC = {
     "implementation_in_progress": "checks_in_progress",
     "checks_in_progress": "testing_in_progress",
     "testing_in_progress": "pm_review",
+    "reviewing_in_progress": "pm_review",
 }
 DEFAULT_SNAPSHOT = {
     "version": "deterministic-v2",
@@ -64,7 +67,7 @@ def run_for(session, run_id, user, *, lock=False):
     return run
 
 
-def transition(session, run, target, *, actor="worker", human_decision=False):
+def transition(session, run, target, *, actor="worker", human_decision=False, review_content=None):
     source = run.status
     automatic = run.snapshot["automatic"]
     gates = run.snapshot["approval_gates"]
@@ -81,7 +84,14 @@ def transition(session, run, target, *, actor="worker", human_decision=False):
     run.status = run.current_step = target
     run.gate_id = run.gate_artifact_id = None
     if target in gates and run.snapshot["version"] != "deterministic-v1":
-        open_review(session, run, target)
+        if (
+            run.snapshot["mode"] == "ba_live"
+            and target == "requirements_approval"
+            or run.snapshot["mode"] == "static_site"
+            and target in GATES
+        ) and review_content is None:
+            conflict("Live BA requires validated requirements before review")
+        open_review(session, run, target, review_content)
     if run.started_at is None and target != "cancelled":
         run.started_at = now()
     if target in TERMINAL:
@@ -90,7 +100,7 @@ def transition(session, run, target, *, actor="worker", human_decision=False):
     event(session, run, "state_changed", previous=source, status=target, actor=actor)
 
 
-def start(session, item_id, key, user):
+def start(session, item_id, key, user, *, mode="mock", settings=None, connection_id=None):
     item = item_for(session, item_id, user, lock=True)
     existing = session.scalar(
         select(WorkflowRun).where(
@@ -99,6 +109,11 @@ def start(session, item_id, key, user):
         )
     )
     if existing:
+        if (
+            existing.snapshot["mode"] != mode
+            or existing.snapshot.get("connection_id") != connection_id
+        ):
+            conflict("Idempotency key already used with another execution mode")
         return existing
     project = project_for(session, item.project_id, user)
     if project.status != "active":
@@ -111,13 +126,47 @@ def start(session, item_id, key, user):
     )
     if active:
         conflict("Work item already has an active workflow")
+    snapshot = deepcopy(DEFAULT_SNAPSHOT)
+    if mode in {"ba_live", "static_site"}:
+        if settings is None:
+            raise DomainError(503, "ba_not_configured", "Live BA is not configured on the server")
+        selected = ai_access.resolve(session, user, settings, connection_id)
+        from app.agents.ba import PROMPT_VERSION
+
+        snapshot.update(
+            version="ba-v1",
+            mode="ba_live",
+            provider=selected.llm_provider,
+            model=selected.llm_model,
+            connection_id=connection_id,
+            prompt_version=PROMPT_VERSION,
+            notice="BA uses an LLM; planning, implementation and testing remain simulated.",
+        )
+        if mode == "static_site":
+            from app.agents.dev import PROMPT_VERSION as DEV_PROMPT_VERSION
+
+            snapshot.update(
+                version="static-site-v2",
+                quality_prompt_version="site-quality-v1",
+                mode=mode,
+                dev_prompt_version=DEV_PROMPT_VERSION,
+                notice=(
+                    "BA and Dev generate a website; Tester and Reviewer assess source with AI. "
+                    "No browser tests executed."
+                ),
+            )
+            snapshot["automatic"]["testing_in_progress"] = "reviewing_in_progress"
+    elif mode != "mock":
+        raise DomainError(422, "invalid_mode", "Unsupported execution mode")
+    elif connection_id:
+        raise DomainError(422, "invalid_mode", "Mock runs do not use an AI connection")
     run = WorkflowRun(
-        work_item_id=item_id, idempotency_key=key, snapshot=deepcopy(DEFAULT_SNAPSHOT)
+        work_item_id=item_id, idempotency_key=key, snapshot=snapshot, connection_id=connection_id
     )
     session.add(run)
     session.flush()
     item.status = "queued"
-    event(session, run, "run_queued", actor=user, mode="mock")
+    event(session, run, "run_queued", actor=user, mode=mode)
     return run
 
 
@@ -191,17 +240,36 @@ def cancel(session, run_id, data, user):
         conflict("Terminal runs cannot be cancelled")
     run.cancellation_reason = data.reason
     run.retryable = False
+    for agent in session.scalars(
+        select(AgentRun).where(AgentRun.run_id == run.id, AgentRun.status == "running")
+    ):
+        agent.status = "discarded"
+        agent.ended_at = now()
+        agent.error_code = "run_cancelled"
     transition(session, run, "cancelled", actor=user)
     return run
 
 
-def retry(session, run_id, user):
+def retry(session, run_id, user, *, settings=None, connection_id=None):
     run = run_for(session, run_id, user, lock=True)
     item = item_for(session, run.work_item_id, user, lock=True)
     project = project_for(session, item.project_id, user)
     if project.status != "active":
         conflict("Cannot retry a workflow in an archived project")
-    if run.status != "failed" or not run.retryable:
+    changing_ba_connection = connection_id and (
+        run.snapshot["mode"] == "ba_live"
+        and run.failed_step == "ba_in_progress"
+        or run.snapshot["mode"] == "static_site"
+        and run.failed_step
+        in {
+            "ba_in_progress",
+            "plan_in_progress",
+            "implementation_in_progress",
+            "testing_in_progress",
+            "reviewing_in_progress",
+        }
+    )
+    if run.status != "failed" or (not run.retryable and not changing_ba_connection):
         conflict("Only retryable failed runs may be retried")
     if run.attempt >= run.snapshot["max_attempts"]:
         conflict("Retry limit reached")
@@ -217,6 +285,26 @@ def retry(session, run_id, user):
     target = "queued" if run.snapshot["version"] == "deterministic-v1" else run.failed_step
     if target not in run.snapshot["automatic"]:
         conflict("Failed step cannot be safely resumed")
+    if (
+        run.snapshot["mode"] == "ba_live"
+        and target == "ba_in_progress"
+        or run.snapshot["mode"] == "static_site"
+        and target
+        in {
+            "ba_in_progress",
+            "plan_in_progress",
+            "implementation_in_progress",
+            "testing_in_progress",
+            "reviewing_in_progress",
+        }
+    ):
+        if settings is None:
+            raise DomainError(503, "ba_not_configured", "AI configuration is required")
+        chosen = connection_id or run.connection_id
+        ai_access.resolve(session, user, settings, chosen)
+        if chosen != run.connection_id:
+            event(session, run, "ai_connection_changed", actor=user, connection_id=chosen)
+            run.connection_id = chosen
     run.attempt += 1
     run.status = run.current_step = item.status = target
     run.failure_reason = None
@@ -236,7 +324,7 @@ def fail_execution(session, run, *, retryable=True):
     transition(session, run, "failed")
 
 
-def open_review(session, run, gate):
+def open_review(session, run, gate, review_content=None):
     """Persist the exact immutable evidence being reviewed in this gate session."""
     item = session.get(WorkItem, run.work_item_id)
     last_feedback = session.scalar(
@@ -268,6 +356,8 @@ def open_review(session, run, gate):
         content["artifact_ids"] = list(
             session.scalars(select(Artifact.id).where(Artifact.run_id == run.id))
         )
+    if review_content is not None:
+        content = review_content
     artifact = Artifact(
         id=new_id(),
         run_id=run.id,
@@ -289,8 +379,10 @@ def advance_mock(session, run):
     """One bounded mock step; future external executors must run outside transactions."""
     if run.status not in AUTOMATIC:
         return
-    if run.snapshot["mode"] != "mock":
+    if run.snapshot["mode"] not in {"mock", "ba_live"}:
         conflict("Unsupported execution mode")
+    if run.snapshot["mode"] == "ba_live" and run.status == "ba_in_progress":
+        conflict("Live BA must execute outside the transaction")
     item = session.get(WorkItem, run.work_item_id)
     if run.status == "ba_in_progress":
         event(

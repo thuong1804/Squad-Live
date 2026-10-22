@@ -3,6 +3,10 @@ import { api } from "./api-client";
 import { shouldPoll } from "./status";
 import {
   projectSchema,
+  capabilitiesSchema,
+  connectionSchema,
+  modelListSchema,
+  agentRunSchema,
   itemSchema,
   runSchema,
   eventSchema,
@@ -14,6 +18,33 @@ import {
 import type { ApprovalDecision } from "@/types/contracts";
 
 const root = "/api/v1";
+export const capabilitiesOptions = queryOptions({
+  queryKey: ["capabilities"],
+  queryFn: ({ signal }) =>
+    api.request(`${root}/capabilities`, capabilitiesSchema.parse, { signal }),
+  refetchInterval: 5000,
+});
+export const connectionsOptions = (offset = 0) =>
+  queryOptions({
+    queryKey: ["ai-connections", offset],
+    queryFn: ({ signal }) =>
+      api.request(
+        `${root}/ai-connections?limit=100&offset=${offset}`,
+        pageSchema(connectionSchema).parse,
+        { signal },
+      ),
+  });
+export const agentRunsOptions = (id: string, offset: number, active: boolean) =>
+  queryOptions({
+    queryKey: ["agent-runs", id, offset],
+    queryFn: ({ signal }) =>
+      api.request(
+        `${root}/workflow-runs/${id}/agent-runs?limit=25&offset=${offset}`,
+        pageSchema(agentRunSchema).parse,
+        { signal },
+      ),
+    refetchInterval: active ? 3000 : false,
+  });
 export const artifactOptions = (runId: string, artifactId: string) =>
   queryOptions({
     queryKey: ["artifact", runId, artifactId],
@@ -112,6 +143,27 @@ export const dashboardOptions = queryOptions({
   refetchInterval: 10000,
 });
 export const commands = {
+  discoverModels: (provider: string, api_key: string) =>
+    api.request(`${root}/ai-connections/models`, modelListSchema.parse, {
+      method: "POST",
+      body: JSON.stringify({ provider, api_key }),
+    }),
+  createConnection: (body: {
+    name: string;
+    provider: string;
+    api_key: string;
+    model: string;
+  }) =>
+    api.request(`${root}/ai-connections`, connectionSchema.parse, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  disableConnection: (id: string) =>
+    api.request(
+      `${root}/ai-connections/${id}/disable`,
+      connectionSchema.parse,
+      { method: "POST" },
+    ),
   createProject: (body: { name: string; description: string }) =>
     api.request(`${root}/projects`, projectSchema.parse, {
       method: "POST",
@@ -135,10 +187,19 @@ export const commands = {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  start: (id: string, key: string) =>
+  start: (
+    id: string,
+    key: string,
+    mode: "mock" | "ba_live" | "static_site" = "mock",
+    connection_id?: string,
+  ) =>
     api.request(`${root}/work-items/${id}/workflow-runs`, runSchema.parse, {
       method: "POST",
       headers: { "Idempotency-Key": key },
+      body: JSON.stringify({
+        mode,
+        connection_id: mode !== "mock" ? connection_id : undefined,
+      }),
     }),
   approve: (id: string, body: ApprovalDecision) =>
     api.request(`${root}/workflow-runs/${id}/approvals`, runSchema.parse, {
@@ -150,8 +211,9 @@ export const commands = {
       method: "POST",
       body: JSON.stringify({ reason: "Cancelled by PM from dashboard" }),
     }),
-  retry: (id: string) =>
+  retry: (id: string, connection_id?: string) =>
     api.request(`${root}/workflow-runs/${id}/retry`, runSchema.parse, {
       method: "POST",
+      body: JSON.stringify({ connection_id }),
     }),
 };

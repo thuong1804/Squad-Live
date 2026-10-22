@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
-import { ApprovalPanel } from "./approval-panel";
+import { ApprovalPanel, ArtifactView } from "./approval-panel";
 import { ApiError } from "@/lib/api-client";
 import type { Artifact, Run } from "@/types/contracts";
 const run: Run = {
@@ -32,6 +32,51 @@ const artifact: Artifact = {
   created_at: "",
   content: { description: "<script>alert(1)</script>", simulated: true },
 };
+it("renders live BA requirements as readable text and escapes generated markup", () => {
+  render(
+    <ArtifactView
+      artifact={{
+        ...artifact,
+        content: {
+          simulated: false,
+          specification: {
+            title: "Live requirements",
+            summary: "<script>alert(1)</script>",
+            user_stories: [
+              {
+                id: "US1",
+                role: "PM",
+                goal: "Review",
+                benefit: "Control scope",
+              },
+            ],
+            acceptance_criteria: [
+              {
+                id: "AC1",
+                story_id: "US1",
+                given: "A request",
+                when: "Reviewed",
+                then: "Recorded",
+              },
+            ],
+            edge_cases: [],
+            non_functional_requirements: [],
+            open_questions: ["Who may approve?"],
+            assumptions: [],
+          },
+        },
+      }}
+    />,
+  );
+  expect(
+    screen.getByRole("heading", { name: "Live requirements" }),
+  ).toBeInTheDocument();
+  expect(screen.getByText("Who may approve?")).toBeInTheDocument();
+  expect(
+    screen.getByText("BA tạo bằng AI · Cần PM kiểm tra"),
+  ).toBeInTheDocument();
+  expect(document.querySelector("script")).toBeNull();
+});
 it("binds an approval to the reviewed session and artifact", () => {
   const onDecision = vi.fn();
   render(

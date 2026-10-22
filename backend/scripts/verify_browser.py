@@ -11,6 +11,7 @@ from uuid import uuid4
 
 import httpx
 from alembic.config import Config
+from cryptography.fernet import Fernet
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 
@@ -46,11 +47,17 @@ def main():
         env = {
             **os.environ,
             "DATABASE_URL": scoped_url,
-            "AUTH_TOKENS": json.dumps({"browser-pm": token}),
+            "AUTH_TOKENS": json.dumps({"google:browseruser": token}),
+            "LEGACY_TOKEN_AUTH_ENABLED": "true",
+            "GOOGLE_CLIENT_ID": "offline-test-client",
+            "GOOGLE_CLIENT_SECRET": "offline-test-secret",
+            "GOOGLE_REDIRECT_URI": "http://127.0.0.1:8001/auth/google/callback",
+            "FRONTEND_URL": "http://127.0.0.1:5174",
             "CORS_ORIGINS": '["http://127.0.0.1:5174"]',
             "WORKER_POLL_SECONDS": "0.2",
             "VITE_API_BASE_URL": "http://127.0.0.1:8001",
             "E2E_TOKEN": token,
+            "CONNECTION_ENCRYPTION_KEY": Fernet.generate_key().decode(),
         }
         commands = [
             (
@@ -58,7 +65,7 @@ def main():
                     sys.executable,
                     "-m",
                     "uvicorn",
-                    "app.main:app",
+                    "tests.browser_services:app",
                     "--host",
                     "127.0.0.1",
                     "--port",
@@ -66,7 +73,7 @@ def main():
                 ],
                 backend,
             ),
-            ([sys.executable, "-m", "app.workers.runner"], backend),
+            ([sys.executable, "-m", "tests.browser_services"], backend),
             (
                 [
                     "node",

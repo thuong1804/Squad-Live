@@ -4,6 +4,12 @@ React/Vite/TypeScript, TanStack Router/Query, Tailwind, Radix/shadcn-style UI v�
 kiểm tra response. [Hướng dẫn chạy toàn hệ thống](../README.md) và
 [hợp đồng Phase 2](../docs/04-VERTICAL-SLICE-CONTRACT.md).
 
+Cài đặt AI cho phép nhập key một lần cho mỗi cấu hình provider/model. Key chỉ ở bộ
+nhớ form khi nhập; backend lưu mã hóa và không trả lại key đã lưu. Có tài liệu BA
+dễ đọc và lịch sử thực thi/model/token. Xem [Phase 3](../docs/05-BA-AGENT.md).
+Chế độ **Tạo website tĩnh** có Dev thật, danh sách file, Preview desktop/mobile và
+tải ZIP theo phiên bản; xem [hướng dẫn](../docs/07-STATIC-WEBSITE.md). Tester vẫn mô phỏng.
+
 ## Chạy độc lập
 
 Node 20.19+ hoặc LTS tương thích, npm. Từ `frontend/`:
@@ -15,13 +21,14 @@ npm.cmd test
 npm.cmd run build
 ```
 
-Vite ở http://127.0.0.1:5173. `.env.local` là tùy chọn, có thể copy từ `.env.example`.
+Mở Vite ở http://localhost:5173. `.env.local` là tùy chọn, có thể copy từ `.env.example`.
 `VITE_API_BASE_URL` mặc định `http://localhost:8000`; `VITE_HEALTH_PATH` mặc định `/health`.
 Khởi động lại Vite sau khi đổi biến. Không đặt secret/token trong `VITE_*`.
 
-Nhập token PM ở runtime; token không lưu localStorage/sessionStorage. Reload/logout
-xóa phiên trong bộ nhớ; logout cũng xóa query cache. API dùng Bearer, không phụ thuộc
-cookie. Backend phải cho phép CORS từ origin frontend. Health không chứng minh DB sẵn sàng.
+Đăng nhập bằng Google theo [hướng dẫn OAuth](../docs/06-GOOGLE-LOGIN.md).
+API dùng cookie HttpOnly và CSRF token trong bộ nhớ. Reload giữ phiên; logout thu hồi
+phiên và xóa query cache. Backend phải cho phép CORS từ origin frontend.
+Health không chứng minh DB sẵn sàng.
 
 ## Phạm vi đã triển khai
 

@@ -62,6 +62,7 @@ class WorkflowRun(Identity, Base):
     failed_step: Mapped[str | None] = mapped_column(String(40))
     gate_id: Mapped[str | None] = mapped_column(String(36))
     gate_artifact_id: Mapped[str | None] = mapped_column(String(36))
+    connection_id: Mapped[str | None] = mapped_column(String(36))
 
 
 class Approval(Identity, Base):
@@ -92,6 +93,38 @@ class Artifact(Identity, Base):
     content: Mapped[dict] = mapped_column(JSON)
 
 
+class AgentRun(Identity, Base):
+    __tablename__ = "agent_runs"
+    __table_args__ = (UniqueConstraint("run_id", "role", "attempt", "revision"),)
+    run_id: Mapped[str] = mapped_column(ForeignKey("workflow_runs.id"), index=True)
+    role: Mapped[str] = mapped_column(String(20), default="BA")
+    attempt: Mapped[int] = mapped_column(Integer)
+    revision: Mapped[int] = mapped_column(Integer)
+    provider: Mapped[str] = mapped_column(String(40))
+    model: Mapped[str] = mapped_column(String(120))
+    prompt_version: Mapped[str] = mapped_column(String(60))
+    status: Mapped[str] = mapped_column(String(30), default="running")
+    lease_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    input_tokens: Mapped[int | None] = mapped_column(Integer)
+    output_tokens: Mapped[int | None] = mapped_column(Integer)
+    context_chars: Mapped[int] = mapped_column(Integer, default=0)
+    error_code: Mapped[str | None] = mapped_column(String(60))
+    artifact_id: Mapped[str | None] = mapped_column(String(36))
+    connection_id: Mapped[str | None] = mapped_column(String(36))
+
+
+class AIConnection(Identity, Base):
+    __tablename__ = "ai_connections"
+    owner: Mapped[str] = mapped_column(String(200), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    provider: Mapped[str] = mapped_column(String(40))
+    model: Mapped[str] = mapped_column(String(120))
+    encrypted_key: Mapped[str] = mapped_column(Text)
+    enabled: Mapped[bool] = mapped_column(default=True)
+
+
 class WorkflowEvent(Base):
     __tablename__ = "workflow_events"
     __table_args__ = (Index("ix_workflow_events_run_id_id", "run_id", "id"),)
@@ -100,3 +133,29 @@ class WorkflowEvent(Base):
     event_type: Mapped[str] = mapped_column(String(60))
     payload: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class GoogleAccount(Base):
+    __tablename__ = "google_accounts"
+    subject: Mapped[str] = mapped_column(String(100), primary_key=True)
+    identity: Mapped[str] = mapped_column(String(200), unique=True)
+    email: Mapped[str] = mapped_column(String(320))
+    display_name: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class LoginAttempt(Base):
+    __tablename__ = "login_attempts"
+    state_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    browser_hash: Mapped[str] = mapped_column(String(64))
+    nonce: Mapped[str] = mapped_column(String(128))
+    verifier: Mapped[str] = mapped_column(String(128))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class PMSession(Base):
+    __tablename__ = "pm_sessions"
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    subject: Mapped[str] = mapped_column(ForeignKey("google_accounts.subject"), index=True)
+    csrf_token: Mapped[str] = mapped_column(String(128))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

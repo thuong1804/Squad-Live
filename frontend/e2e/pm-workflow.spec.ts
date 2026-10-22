@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { googleLogin } from "./google-login";
 
 test("PM creates, requests changes, approves all gates, and sees durable evidence", async ({
   page,
@@ -10,8 +11,7 @@ test("PM creates, requests changes, approves all gates, and sees durable evidenc
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/dashboard");
-  await page.getByLabel("Token truy cập").fill(token);
-  await page.getByRole("button", { name: "Kết nối", exact: true }).click();
+  await googleLogin(page);
   await expect(
     page.getByRole("heading", { name: "Điều phối cùng nhau." }),
   ).toBeVisible();
@@ -40,6 +40,16 @@ test("PM creates, requests changes, approves all gates, and sees durable evidenc
     page.getByRole("button", { name: "Phê duyệt", exact: true }),
   ).toBeEnabled();
   const runId = page.url().split("/").pop()!;
+  await expect(page.locator('[aria-current="step"]')).toContainText(
+    "Duyệt yêu cầu",
+  );
+  await expect(page.locator(".review-kicker")).toHaveText(
+    "Lần duyệt 1/3 · Yêu cầu của BA",
+  );
+  await page.screenshot({
+    path: "test-results/run-review.png",
+    fullPage: true,
+  });
   const first = await (
     await request.get(`${api}/workflow-runs/${runId}`, { headers })
   ).json();
@@ -81,21 +91,34 @@ test("PM creates, requests changes, approves all gates, and sees durable evidenc
   await page.getByRole("button", { name: "Phê duyệt", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Trạng thái đã thay đổi");
   await expect(page.locator(".approval-panel h3")).toContainText("plan");
+  await expect(page.locator('[aria-current="step"]')).toContainText(
+    "Duyệt kế hoạch",
+  );
   await page.getByRole("button", { name: "Phê duyệt", exact: true }).click();
   await expect(page.locator(".approval-panel h3")).toContainText("delivery");
+  await expect(page.locator('[aria-current="step"]')).toContainText(
+    "Đánh giá cuối",
+  );
   await page.getByRole("button", { name: "Phê duyệt", exact: true }).click();
   await expect(page.locator(".page-heading .status-badge")).toHaveText(
     "Hoàn tất",
   );
+  await expect(page.locator(".workflow-progress")).toContainText(
+    "chưa có file HTML",
+  );
+  await expect(page.locator('[aria-current="step"]')).toHaveCount(0);
   await page
-    .getByRole("button", { name: "Lịch sử phê duyệt", exact: true })
+    .getByText("Chi tiết thực thi và lịch sử workflow", { exact: true })
+    .click();
+  await page
+    .getByRole("tab", { name: "Lịch sử phê duyệt", exact: true })
     .click();
   await expect(page.locator(".run-columns")).toContainText(
     "Add a negative case",
   );
   await expect(page.locator(".run-columns .artifact")).toHaveCount(4);
   await expect(page.locator(".run-columns .artifact").first()).toContainText(
-    "browser-pm",
+    "google:browseruser",
   );
   expect(
     (
@@ -122,9 +145,9 @@ test("PM creates, requests changes, approves all gates, and sees durable evidenc
     fullPage: true,
   });
   await page.reload();
-  await expect(page.getByLabel("Token truy cập")).toBeVisible();
-  await page.getByLabel("Token truy cập").fill(token);
-  await page.getByRole("button", { name: "Kết nối", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Đăng xuất", exact: true }),
+  ).toBeVisible();
   await expect(page.locator(".page-heading .status-badge")).toHaveText(
     "Hoàn tất",
   );
@@ -155,8 +178,7 @@ test("cancel requires confirmation and archived project cannot create work", asy
     })
   ).json();
   await page.goto(`/workflow-runs/${run.id}`);
-  await page.getByLabel("Token truy cập").fill(process.env.E2E_TOKEN!);
-  await page.getByRole("button", { name: "Kết nối", exact: true }).click();
+  await googleLogin(page);
   await page.getByRole("button", { name: "Hủy workflow", exact: true }).click();
   await expect(page.getByRole("alertdialog")).toBeVisible();
   await page.getByRole("button", { name: "Tiếp tục công việc" }).click();
@@ -173,8 +195,6 @@ test("cancel requires confirmation and archived project cannot create work", asy
     data: { status: "archived" },
   });
   await page.goto(`/projects/${project.id}/work-items/new`);
-  await page.getByLabel("Token truy cập").fill(process.env.E2E_TOKEN!);
-  await page.getByRole("button", { name: "Kết nối", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Tạo công việc", exact: true }),
   ).toBeDisabled();

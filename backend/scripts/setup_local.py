@@ -5,6 +5,7 @@ import secrets
 from pathlib import Path
 from urllib.parse import quote
 
+from cryptography.fernet import Fernet
 from dotenv import dotenv_values
 
 root = Path(__file__).resolve().parents[2]
@@ -29,4 +30,19 @@ if not backend_env.exists():
             f"AUTH_TOKENS={tokens}\n"
             'CORS_ORIGINS=["http://localhost:5173","http://127.0.0.1:5173"]\n'
         )
-print("Local configuration exists. Secrets were not displayed; existing files preserved.")
+if not dotenv_values(backend_env).get("CONNECTION_ENCRYPTION_KEY"):
+    with backend_env.open("a", encoding="utf-8") as stream:
+        stream.write("\nCONNECTION_ENCRYPTION_KEY=" + Fernet.generate_key().decode() + "\n")
+print("Local configuration exists. Encryption key ensured; no secrets displayed.")
+oauth_defaults = {
+    "GOOGLE_CLIENT_ID": "",
+    "GOOGLE_CLIENT_SECRET": "",
+    "GOOGLE_REDIRECT_URI": "http://localhost:8000/auth/google/callback",
+    "FRONTEND_URL": "http://localhost:5173",
+    "LEGACY_TOKEN_AUTH_ENABLED": "false",
+}
+existing = dotenv_values(backend_env)
+with backend_env.open("a", encoding="utf-8") as stream:
+    for name, value in oauth_defaults.items():
+        if name not in existing:
+            stream.write(f"{name}={value}\n")

@@ -1,5 +1,12 @@
 # Squad Live backend
 
+Chế độ `static_site` bổ sung Dev lập kế hoạch và sinh website thật, lưu phiên bản
+artifact, Preview JSON và ZIP có kiểm tra chủ sở hữu. Xem [demo website](../docs/07-STATIC-WEBSITE.md).
+Các run `ba_live` cũ vẫn chỉ chạy BA thật; không tự thay đổi snapshot.
+
+Phase 3 bổ sung BA dùng BYOK (OpenAI/Gemini/DeepSeek), giữ mock mặc định. Xem [cấu hình và demo BA](../docs/05-BA-AGENT.md).
+Các mô tả mô phỏng dưới đây áp dụng cho mode `mock`; `ba_live` chỉ chạy BA thật.
+
 FastAPI + SQLAlchemy 2 + PostgreSQL + Alembic. Worker riêng xử lý workflow mô phỏng,
 không thực thi tác vụ dài trong HTTP handler. Hướng dẫn thiết lập đầy đủ ở
 [README gốc](../README.md); [hợp đồng Phase 2](../docs/04-VERTICAL-SLICE-CONTRACT.md)
@@ -17,10 +24,12 @@ docker compose --project-directory .. up -d --wait postgres
 .\.venv\Scripts\python.exe -m app.workers.runner
 ```
 
-Settings đọc `.env` từ working directory. `AUTH_TOKENS` ánh xạ identity sang token
-ngẫu nhiên tối thiểu 32 ký tự; `{}` mặc định từ chối API nghiệp vụ. Token được gửi
-qua `Authorization: Bearer ...`; không có cookie session/login/OIDC. Người dùng chỉ
-truy cập tài nguyên mình sở hữu; tài nguyên người khác trả 404. Không in token/DB URL.
+Settings đọc `.env` từ working directory. PM đăng nhập bằng Google OAuth, dùng cookie
+HttpOnly và CSRF token; xem [cấu hình Google](../docs/06-GOOGLE-LOGIN.md).
+Bearer `AUTH_TOKENS` chỉ hoạt động khi bật `LEGACY_TOKEN_AUTH_ENABLED=true` có chủ đích.
+Người dùng chỉ truy cập tài nguyên mình sở hữu; tài nguyên người khác trả 404.
+Không in token/DB URL. `/auth/config`, `/auth/google/start`, `/auth/google/callback`
+và `/auth/session` phục vụ đăng nhập; POST `/auth/logout` thu hồi phiên.
 
 ## API
 
@@ -59,12 +68,19 @@ Mỗi phiên duyệt có artifact JSON riêng; không có endpoint sửa/xóa ar
 Các run v1 giữ nguyên reject→failed và retry→queued. Run v2 retry từ `failed_step`,
 tối đa 3 attempts; chỉnh sửa của PM không tiêu tốn retry. Repair thực chưa triển khai.
 
+Trong mỗi lần thực thi AI, HTTP 503 được tự thử lại tối đa 2 lần (tổng 3 request),
+chờ 2–3 giây rồi 4–5 giây. Cả chuỗi dùng chung timeout và lease của bước hiện tại;
+không tăng `attempt` của workflow. Áp dụng cho Gemini, DeepSeek và OpenAI.
+Timeout, mất kết nối, lỗi xác thực/quota và output không hợp lệ không tự gọi lại,
+vì không biết chắc nhà cung cấp đã xử lý request hay chưa. Mỗi request có thể
+ảnh hưởng quota. Cần khởi động lại worker để áp dụng thay đổi code.
+
 Worker dùng transaction ngắn và `FOR UPDATE SKIP LOCKED` trên PostgreSQL. Restart
 tiếp tục từ trạng thái đã commit. DB lỗi được backoff tối đa 5 lần rồi worker thoát;
 khởi động lại sau khi DB phục hồi. Không có API tự ý sửa trạng thái/failure injection.
 SQLite chỉ dùng cho unit/API tests, không thay thế kiểm thử concurrency PostgreSQL.
 
-Migration hiện tại: `0002_review_revisions`. Không sửa snapshot v1. Downgrade bị chặn
+Migration hiện tại: `0005_google_auth`. Không sửa snapshot v1. Downgrade bị chặn
 nếu nhiều revision không thể biểu diễn bằng schema v1 mà không mất lịch sử.
 
 ## Validation

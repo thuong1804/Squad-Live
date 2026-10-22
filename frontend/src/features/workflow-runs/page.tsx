@@ -4,6 +4,7 @@ import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import {
   commands,
+  agentRunsOptions,
   runOptions,
   itemOptions,
   eventsOptions,
@@ -12,6 +13,7 @@ import {
   artifactOptions,
 } from "@/lib/business-api";
 import { shouldPoll } from "@/lib/status";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { DataBoundary } from "@/components/shared/data-boundary";
 import {
@@ -22,6 +24,9 @@ import {
   useCommand,
 } from "@/components/shared/business-ui";
 import { ApprovalPanel, ArtifactView } from "./approval-panel";
+import { WorkflowProgress } from "./progress";
+import { WebsiteResults } from "./website";
+import { AIChoice } from "@/features/ai/settings";
 import type { Run, ApprovalDecision } from "@/types/contracts";
 
 function Gate(props: {
@@ -91,6 +96,53 @@ function Timeline({
           ))}
         </ol>
       )}
+      <Pagination
+        offset={offset}
+        count={data.items.length}
+        onChange={setOffset}
+      />
+    </section>
+  );
+}
+function AgentExecutions({
+  id,
+  active,
+}: {
+  id: string;
+  active: boolean;
+}): React.JSX.Element {
+  const [offset, setOffset] = useState(0);
+  const { data, error } = useSuspenseQuery(
+    agentRunsOptions(id, offset, active),
+  );
+  return (
+    <section className="panel content-panel">
+      <h2>Lần thực thi AI</h2>
+      <ErrorNotice error={error} />
+      {!data.items.length && <p>Chưa có lần gọi BA.</p>}
+      {data.items.map((agent) => (
+        <article key={agent.id}>
+          <h3>
+            {agent.role} · {agent.provider} / {agent.model}
+          </h3>
+          <p>
+            {agent.status} · Bản {agent.revision} · Lần {agent.attempt}
+          </p>
+          <p>
+            {agent.connection_id
+              ? `Kết nối riêng: ${agent.connection_id.slice(0, 8)}`
+              : "Lần thực thi cũ chưa gắn kết nối BYOK"}
+          </p>
+          <p>
+            Token vào / ra: {agent.input_tokens ?? "—"} /{" "}
+            {agent.output_tokens ?? "—"} · Thời gian:{" "}
+            {agent.duration_ms === null
+              ? "—"
+              : `${(agent.duration_ms / 1000).toFixed(1)} s`}
+          </p>
+          {agent.error_code && <p role="alert">Mã lỗi: {agent.error_code}</p>}
+        </article>
+      ))}
       <Pagination
         offset={offset}
         count={data.items.length}
@@ -174,10 +226,21 @@ export function RunPage({ id }: { id: string }): React.JSX.Element {
   const client = useQueryClient();
   const [tab, setTab] = useState<"artifacts" | "approvals">("artifacts");
   const cancel = useCommand(() => commands.cancel(id));
+  const [decisionNotice, setDecisionNotice] = useState("");
   const approve = useCommand((body: ApprovalDecision) =>
-    commands.approve(id, body),
+    commands.approve(id, body).then((result) => {
+      setDecisionNotice(
+        body.decision === "approve"
+          ? "Đã ghi nhận phê duyệt. Tiến độ bên dưới hiển thị trạng thái mới nhất."
+          : "Đã gửi yêu cầu chỉnh sửa. Workflow quay về bước xử lý; bạn sẽ duyệt lại tài liệu mới.",
+      );
+      return result;
+    }),
   );
-  const retry = useCommand(() => commands.retry(id));
+  const [retryConnection, setRetryConnection] = useState("");
+  const retry = useCommand(() =>
+    commands.retry(id, retryConnection || undefined),
+  );
   const active = shouldPoll(run.status);
   const gated = [
     "requirements_approval",
@@ -185,7 +248,13 @@ export function RunPage({ id }: { id: string }): React.JSX.Element {
     "pm_review",
   ].includes(run.status);
   useEffect(() => {
-    for (const key of ["events", "artifacts", "approvals"])
+    for (const key of [
+      "events",
+      "artifacts",
+      "approvals",
+      "agent-runs",
+      "websites",
+    ])
       void client.invalidateQueries({ queryKey: [key, id] });
   }, [client, id, run.status, run.gate_id, run.attempt]);
   return (
@@ -203,7 +272,13 @@ export function RunPage({ id }: { id: string }): React.JSX.Element {
           disabled={isFetching}
           onClick={() => {
             void refetch();
-            for (const key of ["events", "artifacts", "approvals"])
+            for (const key of [
+              "events",
+              "artifacts",
+              "approvals",
+              "agent-runs",
+              "websites",
+            ])
               void client.invalidateQueries({ queryKey: [key, id] });
           }}
         >
@@ -211,33 +286,58 @@ export function RunPage({ id }: { id: string }): React.JSX.Element {
         </Button>
       </div>
       <div className="simulation-notice" role="note">
-        Workflow mô phỏng · Không thực thi AI, sửa code, chạy test hoặc tạo PR.
+        {run.snapshot.mode === "static_site"
+          ? run.snapshot.quality_prompt_version
+            ? "BA, Dev, Tester và Reviewer dùng AI. Tester/Reviewer phân tích mã nguồn, chưa chạy kiểm thử trình duyệt. PM quyết định cuối cùng."
+            : "BA và Dev dùng AI thật để tạo website HTML/CSS/JS. Tester mô phỏng; chưa tạo PR hoặc deploy."
+          : run.snapshot.mode === "ba_live"
+            ? "BA dùng AI thật để tạo yêu cầu. Dev và Tester vẫn mô phỏng; chưa sửa code, chạy test hoặc tạo PR."
+            : "Workflow mô phỏng · Không thực thi AI, sửa code, chạy test hoặc tạo PR."}
       </div>
+      {decisionNotice && (
+        <p className="decision-notice" role="status">
+          {decisionNotice}
+        </p>
+      )}
+      <WorkflowProgress run={run} />
       <section className="panel content-panel">
-        <dl className="run-facts">
-          <div>
-            <dt>Run ID</dt>
-            <dd>{run.id}</dd>
-          </div>
-          <div>
-            <dt>Phiên bản chỉnh sửa</dt>
-            <dd>{run.revision}</dd>
-          </div>
-          <div>
-            <dt>Lần thực thi</dt>
-            <dd>{run.attempt}</dd>
-          </div>
-          <div>
-            <dt>Bắt đầu / kết thúc</dt>
-            <dd>
-              {timeLabel(run.started_at)} / {timeLabel(run.ended_at)}
-            </dd>
-          </div>
-        </dl>
+        <details>
+          <summary>
+            Thông tin phiên chạy · Bản {run.revision} · Lần {run.attempt}
+          </summary>
+          <dl className="run-facts">
+            <div>
+              <dt>Run ID</dt>
+              <dd>{run.id}</dd>
+            </div>
+            <div>
+              <dt>Phiên bản chỉnh sửa</dt>
+              <dd>{run.revision}</dd>
+            </div>
+            <div>
+              <dt>Lần thực thi</dt>
+              <dd>{run.attempt}</dd>
+            </div>
+            <div>
+              <dt>Bắt đầu / kết thúc</dt>
+              <dd>
+                {timeLabel(run.started_at)} / {timeLabel(run.ended_at)}
+              </dd>
+            </div>
+          </dl>
+        </details>
         <ErrorNotice
           error={error || cancel.error || retry.error || approve.error}
         />
         {run.failure_reason && <p role="alert">{run.failure_reason}</p>}
+        {run.status === "failed" && run.snapshot.mode !== "mock" && (
+          <p>
+            Số lần thử đã dùng: {run.attempt}/
+            {Number(run.snapshot.max_attempts ?? 3)}. Mỗi lần thử lại có thể
+            tiêu tốn quota AI. Nếu nhà cung cấp đang quá tải, hãy chờ hoặc chọn
+            kết nối với model khác trước khi thử lại.
+          </p>
+        )}
         {run.cancellation_reason && <p>{run.cancellation_reason}</p>}
         <div className="actions">
           {active && (
@@ -271,7 +371,14 @@ export function RunPage({ id }: { id: string }): React.JSX.Element {
           )}
           {run.status === "failed" && (
             <Button
-              disabled={!run.retryable || retry.isPending}
+              disabled={
+                retry.isPending ||
+                (!run.retryable &&
+                  !(
+                    retryConnection &&
+                    run.attempt < Number(run.snapshot.max_attempts ?? 3)
+                  ))
+              }
               onClick={() => retry.mutate(undefined)}
             >
               Thử lại bước lỗi
@@ -279,6 +386,36 @@ export function RunPage({ id }: { id: string }): React.JSX.Element {
           )}
         </div>
       </section>
+      {run.status === "failed" &&
+        run.snapshot.mode !== "mock" &&
+        [
+          "ba_in_progress",
+          "plan_in_progress",
+          "implementation_in_progress",
+          "testing_in_progress",
+          "reviewing_in_progress",
+        ].includes(run.failed_step || "") && (
+          <section className="panel content-panel">
+            <h2>Kết nối để tiếp tục bước AI</h2>
+            <DataBoundary>
+              <AIChoice
+                retry
+                value={retryConnection}
+                disabled={retry.isPending}
+                onChange={setRetryConnection}
+              />
+            </DataBoundary>
+            <p>
+              Chọn kết nối mới để thử lại với yêu cầu và các bản tài liệu đã
+              lưu. Lịch sử lần gọi trước không thay đổi.
+            </p>
+          </section>
+        )}
+      {run.snapshot.mode === "static_site" && (
+        <DataBoundary>
+          <WebsiteResults run={run} />
+        </DataBoundary>
+      )}
       {gated && (
         <DataBoundary key={run.gate_id || run.status}>
           <Gate
@@ -289,40 +426,42 @@ export function RunPage({ id }: { id: string }): React.JSX.Element {
           />
         </DataBoundary>
       )}
-      <div className="run-columns">
-        <DataBoundary>
-          <Timeline id={id} active={active} />
-        </DataBoundary>
-        <section className="panel content-panel">
-          <div
-            className="actions"
-            role="group"
-            aria-label="Bằng chứng và lịch sử"
-          >
-            <Button
-              variant={tab === "artifacts" ? "default" : "outline"}
-              aria-pressed={tab === "artifacts"}
-              onClick={() => setTab("artifacts")}
-            >
-              Artifacts
-            </Button>
-            <Button
-              variant={tab === "approvals" ? "default" : "outline"}
-              aria-pressed={tab === "approvals"}
-              onClick={() => setTab("approvals")}
-            >
-              Lịch sử phê duyệt
-            </Button>
-          </div>
+      <details className="workflow-diagnostics">
+        <summary>Chi tiết thực thi và lịch sử workflow</summary>
+        {run.snapshot.mode !== "mock" && (
           <DataBoundary>
-            {tab === "artifacts" ? (
-              <Artifacts id={id} />
-            ) : (
-              <Approvals id={id} />
-            )}
+            <AgentExecutions id={id} active={active} />
           </DataBoundary>
-        </section>
-      </div>
+        )}
+        <div className="run-columns">
+          <DataBoundary>
+            <Timeline id={id} active={active} />
+          </DataBoundary>
+          <section className="panel content-panel">
+            <Tabs
+              value={tab}
+              onValueChange={(value) =>
+                setTab(value as "artifacts" | "approvals")
+              }
+            >
+              <TabsList aria-label="Bằng chứng và lịch sử">
+                <TabsTrigger value="artifacts">Artifacts</TabsTrigger>
+                <TabsTrigger value="approvals">Lịch sử phê duyệt</TabsTrigger>
+              </TabsList>
+              <TabsContent value="artifacts">
+                <DataBoundary>
+                  <Artifacts id={id} />
+                </DataBoundary>
+              </TabsContent>
+              <TabsContent value="approvals">
+                <DataBoundary>
+                  <Approvals id={id} />
+                </DataBoundary>
+              </TabsContent>
+            </Tabs>
+          </section>
+        </div>
+      </details>
     </>
   );
 }

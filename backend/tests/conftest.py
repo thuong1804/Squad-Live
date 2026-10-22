@@ -37,6 +37,7 @@ def app(engine):
     return create_app(
         Settings(
             _env_file=None,
+            legacy_token_auth_enabled=True,
             auth_tokens={
                 "owner": TOKEN,
                 "other": OTHER_TOKEN,

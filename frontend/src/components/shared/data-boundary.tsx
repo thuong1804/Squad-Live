@@ -40,8 +40,14 @@ export function DataBoundary({
         <Boundary reset={reset}>
           <Suspense
             fallback={
-              <div className="panel content-panel" role="status">
+              <div
+                className="panel content-panel loading-panel"
+                role="status"
+                aria-busy="true"
+              >
                 Đang tải dữ liệu…
+                <div className="loading-bar" aria-hidden="true" />
+                <div className="loading-bar" aria-hidden="true" />
               </div>
             }
           >

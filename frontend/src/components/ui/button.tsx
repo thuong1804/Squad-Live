@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 const buttonVariants = cva("button", {
   variants: {
-    variant: { default: "button-primary", outline: "button-outline" },
+    variant: { default: "button-primary", outline: "button-outline", ghost: "button-ghost", danger: "button-danger" },
   },
   defaultVariants: { variant: "default" },
 });

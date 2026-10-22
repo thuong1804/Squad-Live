@@ -9,6 +9,7 @@ import {
   runsOptions,
 } from "@/lib/business-api";
 import { Button } from "@/components/ui/button";
+import { AIChoice, useAIAccess } from "@/features/ai/settings";
 import {
   ErrorNotice,
   Pagination,
@@ -103,12 +104,19 @@ export function NewItemPage({
 export function ItemPage({ id }: { id: string }): React.JSX.Element {
   const [offset, setOffset] = useState(0);
   const [key, setKey] = useState(() => crypto.randomUUID());
+  const [mode, setMode] = useState<"mock" | "ba_live" | "static_site">("mock");
+  const { capabilities, connections } = useAIAccess();
+  const [connectionId, setConnectionId] = useState("");
+  const aiReady = connectionId
+    ? capabilities.key_storage_available &&
+      connections.some((connection) => connection.id === connectionId)
+    : false;
   const { data: item, error } = useSuspenseQuery(itemOptions(id));
   const { data: project } = useSuspenseQuery(projectOptions(item.project_id));
   const { data: runs } = useSuspenseQuery(runsOptions(id, offset));
   const navigate = useNavigate();
   const start = useCommand(
-    () => commands.start(id, key),
+    () => commands.start(id, key, mode, connectionId || undefined),
     (run) => {
       setKey(crypto.randomUUID());
       void navigate({ to: "/workflow-runs/$runId", params: { runId: run.id } });
@@ -131,13 +139,52 @@ export function ItemPage({ id }: { id: string }): React.JSX.Element {
           <Status value={item.status} />
         </div>
         <Button
-          disabled={!canStart || start.isPending}
+          disabled={
+            !canStart || start.isPending || (mode !== "mock" && !aiReady)
+          }
           onClick={() => start.mutate(undefined)}
         >
-          {start.isPending ? "Đang khởi tạo…" : "Bắt đầu workflow mô phỏng"}
+          {start.isPending
+            ? "Đang khởi tạo…"
+            : mode === "static_site"
+              ? "Bắt đầu tạo website"
+              : mode === "ba_live"
+                ? "Bắt đầu BA thật"
+                : "Bắt đầu workflow mô phỏng"}
         </Button>
       </div>
       <ErrorNotice error={error || start.error} />
+      <section className="panel content-panel">
+        <label htmlFor="run-mode">Chế độ workflow</label>
+        <select
+          id="run-mode"
+          value={mode}
+          disabled={start.isPending}
+          onChange={(event) => {
+            setMode(event.target.value as typeof mode);
+            setKey(crypto.randomUUID());
+            start.reset();
+          }}
+        >
+          <option value="mock">Mô phỏng toàn bộ</option>
+          <option value="ba_live">BA dùng AI thật</option>
+          <option value="static_site">Tạo website tĩnh · BA + Dev thật</option>
+        </select>
+        <AIChoice
+          value={connectionId}
+          disabled={start.isPending}
+          onChange={(value) => {
+            setConnectionId(value);
+            setKey(crypto.randomUUID());
+            start.reset();
+          }}
+        />
+        <p>
+          {mode === "static_site"
+            ? "BA phân tích, Dev sinh HTML/CSS/JS, Tester và Reviewer đánh giá mã nguồn bằng kết nối AI đã chọn. Có Preview và tải ZIP. Chưa chạy test trình duyệt. Mỗi bước AI sử dụng quota của key; PM duyệt cuối."
+            : "Khi chọn BA thật, yêu cầu và phản hồi sẽ được gửi tới nhà cung cấp AI. Dev và Tester vẫn mô phỏng."}
+        </p>
+      </section>
       {!canStart && (
         <p>
           Chỉ có thể bắt đầu khi dự án hoạt động và công việc không có run đang

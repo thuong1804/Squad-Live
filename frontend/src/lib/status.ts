@@ -10,6 +10,7 @@ export const statuses = {
   repair_in_progress: ["Đang sửa lỗi", "active"],
   pr_created: ["Đã tạo PR", "active"],
   testing_in_progress: ["Đang kiểm thử", "active"],
+  reviewing_in_progress: ["Reviewer AI đang đánh giá", "active"],
   pm_review: ["Chờ PM đánh giá", "approval"],
   completed: ["Hoàn tất", "success"],
   failed: ["Thất bại", "error"],

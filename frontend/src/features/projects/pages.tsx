@@ -9,6 +9,7 @@ import {
   itemsOptions,
 } from "@/lib/business-api";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/shared/page-layout";
 import {
   ErrorNotice,
   Pagination,
@@ -34,7 +35,10 @@ export function ProjectsPage(): React.JSX.Element {
       <ErrorNotice error={error} />
       <section className="panel content-panel">
         {!data.items.length ? (
-          <p>Chưa có dự án trong trang này.</p>
+          <EmptyState
+            title="Chưa có dự án trong trang này"
+            description="Tạo dự án để tập hợp yêu cầu, theo dõi đội AI và duyệt kết quả."
+          />
         ) : (
           <div className="record-list">
             {data.items.map((project) => (
@@ -49,7 +53,9 @@ export function ProjectsPage(): React.JSX.Element {
                   <p>{project.description || "Chưa có mô tả"}</p>
                   <small>Cập nhật {timeLabel(project.updated_at)}</small>
                 </div>
-                <span>
+                <span
+                  className={`status-badge ${project.status === "active" ? "status-success" : "status-neutral"}`}
+                >
                   {project.status === "active"
                     ? "Đang hoạt động"
                     : "Đã lưu trữ"}
@@ -87,7 +93,8 @@ export function NewProjectPage(): React.JSX.Element {
     <section className="panel content-panel">
       <h1>Tạo dự án</h1>
       <p>
-        Dự án hiện dùng workflow mô phỏng. Kết nối GitHub sẽ được bổ sung sau.
+        Tập hợp công việc trong một dự án, sau đó chọn model và chế độ thực thi
+        cho từng workflow.
       </p>
       <form onSubmit={submit}>
         <label htmlFor="project-name">Tên dự án</label>
@@ -147,8 +154,8 @@ export function ProjectPage({ id }: { id: string }): React.JSX.Element {
       <section className="panel content-panel">
         <h2>Kết nối repository</h2>
         <p>
-          Chưa kết nối. Phiên bản này chỉ chạy workflow mô phỏng, không sửa code
-          hoặc tạo PR.
+          Chưa kết nối. BA có thể phân tích yêu cầu bằng AI; phiên bản này chưa
+          sửa code hoặc tạo PR.
         </p>
         <Button
           variant="outline"

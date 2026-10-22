@@ -1,11 +1,11 @@
 import { useSyncExternalStore } from "react";
 
-let token = "";
+let csrfToken = "";
 let identity = "";
 const listeners = new Set<() => void>();
-export const getToken = (): string => token;
+export const getCsrfToken = (): string => csrfToken;
 export function setSession(value: string, user = ""): void {
-  token = value;
+  csrfToken = value;
   identity = user;
   listeners.forEach((listener) => listener());
 }

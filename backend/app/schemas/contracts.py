@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from typing import Annotated, Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
@@ -16,6 +17,7 @@ RunStatus = Literal[
     "implementation_in_progress",
     "checks_in_progress",
     "testing_in_progress",
+    "reviewing_in_progress",
     "pm_review",
     "completed",
     "failed",
@@ -167,3 +169,59 @@ class DashboardRead(Output):
 
 class SessionRead(Output):
     identity: str
+
+
+class RunCreate(Input):
+    mode: Literal["mock", "ba_live", "static_site"] = "mock"
+    connection_id: UUID | None = None
+
+
+class CapabilitiesRead(Output):
+    ba_live_available: bool
+    provider: str | None
+    model: str | None
+    key_storage_available: bool
+
+
+class AgentRunRead(Output):
+    id: str
+    run_id: str
+    role: str
+    attempt: int
+    revision: int
+    provider: str
+    model: str
+    prompt_version: str
+    status: str
+    created_at: datetime
+    ended_at: datetime | None
+    duration_ms: int | None
+    input_tokens: int | None
+    output_tokens: int | None
+    context_chars: int
+    error_code: str | None
+    artifact_id: str | None
+    connection_id: str | None
+
+
+class ConnectionProbe(Input):
+    provider: Literal["openai", "gemini", "deepseek"]
+    api_key: str = Field(min_length=8, max_length=512, pattern=r"^[A-Za-z0-9._-]+$")
+
+
+class ConnectionCreate(ConnectionProbe):
+    name: str = Field(min_length=1, max_length=100)
+    model: str = Field(min_length=1, max_length=120, pattern=r"^[A-Za-z0-9._-]+$")
+
+
+class ConnectionRead(Output):
+    id: str
+    name: str
+    provider: str
+    model: str
+    enabled: bool
+    created_at: datetime
+
+
+class RetryCreate(Input):
+    connection_id: UUID | None = None

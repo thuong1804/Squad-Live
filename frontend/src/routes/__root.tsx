@@ -9,6 +9,7 @@ import {
   Layers3,
   FolderKanban,
   ShieldCheck,
+  Settings2,
 } from "lucide-react";
 import { AuthGate, SessionControl } from "@/features/auth/session-panel";
 import { DataBoundary } from "@/components/shared/data-boundary";
@@ -41,11 +42,12 @@ function Shell(): React.JSX.Element {
             <LayoutDashboard size={18} />
             Tổng quan
           </Link>
-        </nav>
-        <nav aria-label="Dự án">
           <Link to="/projects" activeProps={{ className: "nav-active" }}>
             <FolderKanban size={18} />
             Dự án
+          </Link>
+          <Link to="/ai-settings" activeProps={{ className: "nav-active" }}>
+            <Settings2 size={18} /> Cài đặt AI
           </Link>
         </nav>
         <div className="sidebar-footer">
@@ -61,7 +63,17 @@ function Shell(): React.JSX.Element {
         <header className="topbar">
           <span>
             Không gian làm việc <span className="separator">/</span>{" "}
-            <strong>PM Console</strong>
+            <strong>
+              {pathname.startsWith("/ai-settings")
+                ? "Cài đặt AI"
+                : pathname.startsWith("/workflow-runs")
+                  ? "Workflow"
+                  : pathname.startsWith("/projects")
+                    ? "Dự án"
+                    : pathname.startsWith("/work-items")
+                      ? "Công việc"
+                      : "Tổng quan"}
+            </strong>
           </span>
           <SessionControl />
         </header>

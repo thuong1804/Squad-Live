@@ -9,12 +9,22 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from starlette.exceptions import HTTPException
 
+from app.api.auth import router as auth_router
 from app.api.routes import router
 from app.core.config import Settings
 from app.core.errors import DomainError
 from app.db.session import make_engine, make_sessions
 
 logger = logging.getLogger(__name__)
+
+
+class HideOAuthCallback(logging.Filter):
+    def filter(self, record):
+        return "/auth/google/callback" not in record.getMessage()
+
+
+# OAuth codes are query parameters; never write callback URLs to access logs.
+logging.getLogger("uvicorn.access").addFilter(HideOAuthCallback())
 
 
 def error_response(status, code, message):
@@ -43,7 +53,7 @@ def create_app(settings: Settings | None = None, engine=None):
         allow_origins=settings.cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH"],
-        allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
+        allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "X-CSRF-Token"],
     )
 
     @api.exception_handler(DomainError)
@@ -83,13 +93,14 @@ def create_app(settings: Settings | None = None, engine=None):
             with engine.connect() as connection:
                 connection.execute(text("SELECT 1"))
                 version = connection.scalar(text("SELECT version_num FROM alembic_version"))
-                if version != "0002_review_revisions":
+                if version != "0005_google_auth":
                     return error_response(503, "not_ready", "Database migrations are required")
         except SQLAlchemyError:
             return error_response(503, "not_ready", "Database is unavailable or not migrated")
         return {"status": "ready"}
 
     api.include_router(router)
+    api.include_router(auth_router)
     return api
 
 
