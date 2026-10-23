@@ -84,6 +84,45 @@ class RepositoryFileRead(Output):
     content: str
 
 
+class WorkspaceFileRead(BaseModel):
+    path: str
+    status: str
+    diff: str
+    truncated: bool
+
+
+class WorkspaceRead(Output):
+    run_id: str
+    source_path: str
+    worktree_path: str
+    base_commit: str
+    base_branch: str | None
+    created_at: datetime
+    changed_files: list[str]
+    untracked_files: list[str]
+    files: list[WorkspaceFileRead]
+    truncated: bool
+
+
+class WorkspaceState(BaseModel):
+    workspace: WorkspaceRead | None
+
+
+class WorkspaceEditCreate(Input):
+    connection_id: UUID
+    paths: list[str] = Field(default_factory=list, max_length=12)
+
+
+class WorkspaceEditRead(Output):
+    id: str
+    status: str
+    summary: str | None
+    files: list[str]
+    source_files: list[str]
+    error_code: str | None
+    created_at: datetime
+
+
 class WorkItemCreate(Input):
     title: Name
     description: Description

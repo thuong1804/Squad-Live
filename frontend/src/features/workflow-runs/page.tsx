@@ -26,6 +26,7 @@ import {
 import { ApprovalPanel, ArtifactView } from "./approval-panel";
 import { WorkflowProgress } from "./progress";
 import { WebsiteResults } from "./website";
+import { RunWorkspacePanel } from "./workspace-panel";
 import { AIChoice } from "@/features/ai/settings";
 import type { Run, ApprovalDecision } from "@/types/contracts";
 
@@ -302,6 +303,9 @@ export function RunPage({ id }: { id: string }): React.JSX.Element {
         </p>
       )}
       <WorkflowProgress run={run} />
+      <DataBoundary>
+        <RunWorkspacePanel runId={id} projectId={item.project_id} />
+      </DataBoundary>
       <section className="panel content-panel">
         <details>
           <summary>

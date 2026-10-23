@@ -74,6 +74,37 @@ export const repositoryFileSchema = z.object({
   path: z.string(),
   content: z.string(),
 });
+export const workspaceSchema = z.object({
+  run_id: z.string(),
+  source_path: z.string(),
+  worktree_path: z.string(),
+  base_commit: z.string(),
+  base_branch: z.string().nullable(),
+  created_at: z.string(),
+  changed_files: z.array(z.string()),
+  untracked_files: z.array(z.string()),
+  files: z.array(
+    z.object({
+      path: z.string(),
+      status: z.string(),
+      diff: z.string(),
+      truncated: z.boolean(),
+    }),
+  ),
+  truncated: z.boolean(),
+});
+export const workspaceStateSchema = z.object({
+  workspace: workspaceSchema.nullable(),
+});
+export const workspaceEditSchema = z.object({
+  id: z.string(),
+  status: z.string(),
+  summary: z.string().nullable(),
+  files: z.array(z.string()),
+  source_files: z.array(z.string()),
+  error_code: z.string().nullable(),
+  created_at: z.string(),
+});
 export const itemSchema = z.object({
   ...identity,
   project_id: z.string(),
@@ -143,6 +174,7 @@ export type Project = z.infer<typeof projectSchema>;
 export type WorkItem = z.infer<typeof itemSchema>;
 export type Run = z.infer<typeof runSchema>;
 export type Artifact = z.infer<typeof artifactSchema>;
+export type WorkspaceFile = z.infer<typeof workspaceSchema>["files"][number];
 export type ApprovalDecision = {
   step: string;
   attempt: number;

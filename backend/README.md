@@ -82,7 +82,7 @@ tiếp tục từ trạng thái đã commit. DB lỗi được backoff tối đa
 khởi động lại sau khi DB phục hồi. Không có API tự ý sửa trạng thái/failure injection.
 SQLite chỉ dùng cho unit/API tests, không thay thế kiểm thử concurrency PostgreSQL.
 
-Migration hiện tại: `0006_project_repository`. Không sửa snapshot v1. Downgrade bị chặn
+Migration hiện tại: `0007_run_workspaces`. Không sửa snapshot v1. Downgrade bị chặn
 nếu nhiều revision không thể biểu diễn bằng schema v1 mà không mất lịch sử.
 
 ## Validation

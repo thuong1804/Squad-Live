@@ -93,7 +93,7 @@ def create_app(settings: Settings | None = None, engine=None):
             with engine.connect() as connection:
                 connection.execute(text("SELECT 1"))
                 version = connection.scalar(text("SELECT version_num FROM alembic_version"))
-                if version != "0006_project_repository":
+                if version != "0007_run_workspaces":
                     return error_response(503, "not_ready", "Database migrations are required")
         except SQLAlchemyError:
             return error_response(503, "not_ready", "Database is unavailable or not migrated")

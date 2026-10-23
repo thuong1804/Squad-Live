@@ -46,8 +46,19 @@ from app.schemas.contracts import (
     SessionRead,
     WorkItemCreate,
     WorkItemRead,
+    WorkspaceEditCreate,
+    WorkspaceEditRead,
+    WorkspaceState,
 )
-from app.services import ai_access, projects, repositories, sites, workflows
+from app.services import (
+    ai_access,
+    projects,
+    repositories,
+    sites,
+    workflows,
+    workspace_edits,
+    workspaces,
+)
 
 router = APIRouter(prefix="/api/v1")
 
@@ -277,6 +288,54 @@ def list_runs(work_item_id: UUID, db: DB, user: User, limit: Limit = 25, offset:
 @router.get("/workflow-runs/{run_id}", response_model=RunRead)
 def get_run(run_id: UUID, db: DB, user: User):
     return workflows.run_for(db, str(run_id), user)
+
+
+@router.get("/workflow-runs/{run_id}/workspace", response_model=WorkspaceState)
+def get_workspace(run_id: UUID, db: DB, user: User, request: Request, response: Response):
+    workspace = workspaces.workspace_for(db, str(run_id), user)
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "workspace": workspaces.inspect(workspace, request.app.state.settings)
+        if workspace
+        else None
+    }
+
+
+@router.post("/workflow-runs/{run_id}/workspace", response_model=WorkspaceState)
+def prepare_workspace(run_id: UUID, db: DB, user: User, request: Request):
+    workspace = workspaces.prepare(db, str(run_id), user, request.app.state.settings)
+    return {"workspace": workspaces.inspect(workspace, request.app.state.settings)}
+
+
+@router.get("/workflow-runs/{run_id}/workspace/edits", response_model=list[WorkspaceEditRead])
+def list_workspace_edits(run_id: UUID, db: DB, user: User, response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return workspace_edits.list_for(db, str(run_id), user)
+
+
+@router.post("/workflow-runs/{run_id}/workspace/edits", response_model=WorkspaceEditRead)
+def run_workspace_dev(
+    run_id: UUID,
+    data: WorkspaceEditCreate,
+    user: User,
+    request: Request,
+    response: Response,
+    key: Key,
+):
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        edit_key = str(UUID(key))
+    except ValueError:
+        raise DomainError(422, "invalid_idempotency_key", "Use a UUID idempotency key") from None
+    return workspace_edits.perform(
+        request.app.state.sessions,
+        str(run_id),
+        user,
+        request.app.state.settings,
+        str(data.connection_id),
+        edit_key,
+        data.paths,
+    )
 
 
 @router.get("/workflow-runs/{run_id}/events", response_model=Page[EventRead])

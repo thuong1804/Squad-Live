@@ -5,6 +5,8 @@ import {
   projectSchema,
   repositorySchema,
   repositoryFileSchema,
+  workspaceStateSchema,
+  workspaceEditSchema,
   capabilitiesSchema,
   connectionSchema,
   modelListSchema,
@@ -67,7 +69,9 @@ export const repositoryOptions = (id: string) =>
   queryOptions({
     queryKey: ["repository", id],
     queryFn: ({ signal }) =>
-      api.request(`${root}/projects/${id}/repository`, repositorySchema.parse, { signal }),
+      api.request(`${root}/projects/${id}/repository`, repositorySchema.parse, {
+        signal,
+      }),
   });
 export const repositoryFileOptions = (id: string, path: string) =>
   queryOptions({
@@ -76,6 +80,26 @@ export const repositoryFileOptions = (id: string, path: string) =>
       api.request(
         `${root}/projects/${id}/repository/file?path=${encodeURIComponent(path)}`,
         repositoryFileSchema.parse,
+        { signal },
+      ),
+  });
+export const workspaceOptions = (runId: string) =>
+  queryOptions({
+    queryKey: ["workspace", runId],
+    queryFn: ({ signal }) =>
+      api.request(
+        `${root}/workflow-runs/${runId}/workspace`,
+        workspaceStateSchema.parse,
+        { signal },
+      ),
+  });
+export const workspaceEditsOptions = (runId: string) =>
+  queryOptions({
+    queryKey: ["workspace-edits", runId],
+    queryFn: ({ signal }) =>
+      api.request(
+        `${root}/workflow-runs/${runId}/workspace/edits`,
+        (body) => workspaceEditSchema.array().parse(body),
         { signal },
       ),
   });
@@ -161,6 +185,28 @@ export const dashboardOptions = queryOptions({
   refetchInterval: 10000,
 });
 export const commands = {
+  prepareWorkspace: (runId: string) =>
+    api.request(
+      `${root}/workflow-runs/${runId}/workspace`,
+      workspaceStateSchema.parse,
+      { method: "POST", timeoutMs: 60000 },
+    ),
+  runWorkspaceDev: (
+    runId: string,
+    connectionId: string,
+    key: string,
+    paths: string[],
+  ) =>
+    api.request(
+      `${root}/workflow-runs/${runId}/workspace/edits`,
+      workspaceEditSchema.parse,
+      {
+        method: "POST",
+        headers: { "Idempotency-Key": key },
+        body: JSON.stringify({ connection_id: connectionId, paths }),
+        timeoutMs: 200000,
+      },
+    ),
   discoverModels: (provider: string, api_key: string) =>
     api.request(`${root}/ai-connections/models`, modelListSchema.parse, {
       method: "POST",

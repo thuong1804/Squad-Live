@@ -1,3 +1,5 @@
+import os
+from pathlib import Path
 from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, field_validator
@@ -15,6 +17,18 @@ class Settings(BaseSettings):
     google_redirect_uri: str = "http://localhost:8000/auth/google/callback"
     frontend_url: str = "http://localhost:5173"
     session_days: int = Field(default=7, ge=1, le=30)
+    workspace_root: Path = Field(
+        default_factory=lambda: Path(os.environ.get("LOCALAPPDATA", Path.home()))
+        / "SquadLive"
+        / "worktrees"
+    )
+
+    @field_validator("workspace_root")
+    @classmethod
+    def valid_workspace_root(cls, value: Path):
+        if not value.is_absolute():
+            raise ValueError("Workspace root must be an absolute path")
+        return value
 
     @property
     def google_ready(self):

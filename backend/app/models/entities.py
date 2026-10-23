@@ -66,6 +66,16 @@ class WorkflowRun(Identity, Base):
     connection_id: Mapped[str | None] = mapped_column(String(36))
 
 
+class RunWorkspace(Base):
+    __tablename__ = "run_workspaces"
+    run_id: Mapped[str] = mapped_column(ForeignKey("workflow_runs.id"), primary_key=True)
+    source_path: Mapped[str] = mapped_column(Text)
+    worktree_path: Mapped[str] = mapped_column(Text, unique=True)
+    base_commit: Mapped[str] = mapped_column(String(40))
+    base_branch: Mapped[str | None] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
 class Approval(Identity, Base):
     __tablename__ = "approvals"
     __table_args__ = (

@@ -33,12 +33,18 @@ const codeMessages: Record<string, string> = {
     "Không đọc được repository đã kết nối. Kiểm tra thư mục và thử lại.",
   repository_too_large:
     "Repository có quá nhiều file tracked để xem trong phiên bản này.",
-  file_not_text:
-    "Chỉ có thể xem file văn bản UTF-8 nhỏ hơn 256 KiB.",
+  file_not_text: "Chỉ có thể xem file văn bản UTF-8 nhỏ hơn 256 KiB.",
   folder_picker_unavailable:
     "Không mở được hộp thoại chọn thư mục trên máy chạy backend. Hãy nhập đường dẫn thủ công.",
-  local_only:
-    "Chỉ có thể chọn thư mục khi dùng web trên cùng máy với backend.",
+  local_only: "Chỉ có thể chọn thư mục khi dùng web trên cùng máy với backend.",
+  workspace_unavailable:
+    "Workspace Git của run không còn truy cập được trên máy. Kiểm tra thư mục đã tạo.",
+  workspace_conflict:
+    "Không thể tạo hoặc đọc workspace Git. Kiểm tra repository và thử lại.",
+  workspace_source_dirty:
+    "Repository gốc đang có thay đổi. Hãy commit hoặc dọn các thay đổi trước khi tạo workspace riêng.",
+  workspace_no_source:
+    "Workspace chưa có file nguồn UTF-8 phù hợp để Dev AI đọc. Hãy kiểm tra repository đã kết nối.",
 };
 
 export class ApiError extends Error {
