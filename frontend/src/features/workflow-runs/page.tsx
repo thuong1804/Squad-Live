@@ -287,9 +287,11 @@ export function RunPage({ id }: { id: string }): React.JSX.Element {
       </div>
       <div className="simulation-notice" role="note">
         {run.snapshot.mode === "static_site"
-          ? run.snapshot.quality_prompt_version
-            ? "BA, Dev, Tester và Reviewer dùng AI. Tester/Reviewer phân tích mã nguồn, chưa chạy kiểm thử trình duyệt. PM quyết định cuối cùng."
-            : "BA và Dev dùng AI thật để tạo website HTML/CSS/JS. Tester mô phỏng; chưa tạo PR hoặc deploy."
+          ? run.snapshot.browser_checks_version
+            ? "BA và Dev tạo website bằng AI. Chromium kiểm tra desktop/mobile; Tester và Reviewer phân tích mã cùng bằng chứng. PM quyết định cuối cùng."
+            : run.snapshot.quality_prompt_version
+              ? "BA, Dev, Tester và Reviewer dùng AI. Tester/Reviewer phân tích mã nguồn, chưa chạy kiểm thử trình duyệt. PM quyết định cuối cùng."
+              : "BA và Dev dùng AI thật để tạo website HTML/CSS/JS. Tester mô phỏng; chưa tạo PR hoặc deploy."
           : run.snapshot.mode === "ba_live"
             ? "BA dùng AI thật để tạo yêu cầu. Dev và Tester vẫn mô phỏng; chưa sửa code, chạy test hoặc tạo PR."
             : "Workflow mô phỏng · Không thực thi AI, sửa code, chạy test hoặc tạo PR."}

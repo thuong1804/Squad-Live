@@ -19,9 +19,11 @@ const assessment = z.object({
 export function QualityReport({
   title,
   value,
+  browserChecked = false,
 }: {
   title: string;
   value: unknown;
+  browserChecked?: boolean;
 }): React.JSX.Element | null {
   const parsed = assessment.safeParse(value);
   if (!parsed.success) return null;
@@ -43,8 +45,9 @@ export function QualityReport({
       </header>
       <p className="document-summary">{report.summary}</p>
       <p className="simulation-notice">
-        AI phân tích mã nguồn. Chưa chạy kiểm thử trình duyệt; PM cần xác minh
-        trong Preview.
+        {browserChecked
+          ? "AI phân tích mã nguồn và đọc kết quả Chromium. AI không tự chạy trình duyệt; PM cần xác minh tương tác trong Preview."
+          : "AI phân tích mã nguồn. Chưa chạy kiểm thử trình duyệt; PM cần xác minh trong Preview."}
       </p>
       <h4>Phát hiện ({report.findings.length})</h4>
       {report.findings.map((finding, index) => (

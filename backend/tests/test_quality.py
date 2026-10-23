@@ -33,6 +33,10 @@ def test_quality_reports_are_bound_to_site_and_never_auto_approve(client, app, i
     assert report["website_artifact_id"] == reviewer["website_artifact_id"]
     assert report["tester_report"] == ASSESSMENT == report["reviewer_report"]
     assert report["tester_artifact_id"] == reviewer["tester_artifact_id"]
+    assert tester["browser_report"]["browser_tests_executed"] is True
+    assert "screenshot_base64" not in json.dumps(tester["browser_report"])
+    assert reviewer["browser_artifact_id"] == tester["browser_artifact_id"]
+    assert report["browser_artifact_id"] == reviewer["browser_artifact_id"]
     assert tick(app.state.sessions, config, provider) is False
     roles = {a["role"] for a in client.get(f"{path}/agent-runs").json()["items"]}
     assert {"TESTER", "REVIEWER"} <= roles
@@ -69,6 +73,7 @@ def test_existing_v1_keeps_simulated_tester(client, app, item):
         run = db.get(WorkflowRun, path.rsplit("/", 1)[-1])
         snapshot = json.loads(json.dumps(run.snapshot))
         snapshot.pop("quality_prompt_version")
+        snapshot.pop("browser_checks_version")
         snapshot["version"] = "static-site-v1"
         snapshot["automatic"]["testing_in_progress"] = "pm_review"
         run.snapshot = snapshot

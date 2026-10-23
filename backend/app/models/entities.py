@@ -28,6 +28,7 @@ class Project(Identity, Base):
     description: Mapped[str] = mapped_column(Text, default="")
     owner: Mapped[str] = mapped_column(String(200), index=True)
     status: Mapped[str] = mapped_column(String(32), default="active")
+    repository_path: Mapped[str | None] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
 
 

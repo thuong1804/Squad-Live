@@ -3,6 +3,8 @@ import { api } from "./api-client";
 import { shouldPoll } from "./status";
 import {
   projectSchema,
+  repositorySchema,
+  repositoryFileSchema,
   capabilitiesSchema,
   connectionSchema,
   modelListSchema,
@@ -60,6 +62,22 @@ export const projectOptions = (id: string) =>
     queryKey: ["project", id],
     queryFn: ({ signal }) =>
       api.request(`${root}/projects/${id}`, projectSchema.parse, { signal }),
+  });
+export const repositoryOptions = (id: string) =>
+  queryOptions({
+    queryKey: ["repository", id],
+    queryFn: ({ signal }) =>
+      api.request(`${root}/projects/${id}/repository`, repositorySchema.parse, { signal }),
+  });
+export const repositoryFileOptions = (id: string, path: string) =>
+  queryOptions({
+    queryKey: ["repository-file", id, path],
+    queryFn: ({ signal }) =>
+      api.request(
+        `${root}/projects/${id}/repository/file?path=${encodeURIComponent(path)}`,
+        repositoryFileSchema.parse,
+        { signal },
+      ),
   });
 export const projectsOptions = (offset: number) =>
   queryOptions({
@@ -173,6 +191,20 @@ export const commands = {
     api.request(`${root}/projects/${id}`, projectSchema.parse, {
       method: "PATCH",
       body: JSON.stringify({ status }),
+    }),
+  connectRepository: (id: string, path: string) =>
+    api.request(`${root}/projects/${id}/repository`, projectSchema.parse, {
+      method: "POST",
+      body: JSON.stringify({ path }),
+    }),
+  pickRepository: (id: string) =>
+    api.request(`${root}/projects/${id}/repository/pick`, projectSchema.parse, {
+      method: "POST",
+      timeoutMs: 120000,
+    }),
+  disconnectRepository: (id: string) =>
+    api.request(`${root}/projects/${id}/repository`, projectSchema.parse, {
+      method: "DELETE",
     }),
   createItem: (
     id: string,

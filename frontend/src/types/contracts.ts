@@ -60,7 +60,19 @@ export const projectSchema = z.object({
   description: z.string(),
   owner: z.string(),
   status: z.enum(["active", "archived"]),
+  repository_path: z.string().nullable(),
   updated_at: z.string(),
+});
+export const repositorySchema = z.object({
+  path: z.string(),
+  branch: z.string().nullable(),
+  head: z.string(),
+  dirty: z.boolean(),
+  files: z.array(z.string()),
+});
+export const repositoryFileSchema = z.object({
+  path: z.string(),
+  content: z.string(),
 });
 export const itemSchema = z.object({
   ...identity,

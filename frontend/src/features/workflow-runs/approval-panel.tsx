@@ -136,7 +136,8 @@ export function ArtifactView({
       {artifact.content.source === "static_site" && (
         <p>
           Mã nguồn website đã được tạo. Mở phần Kết quả website để xem Preview
-          và tải ZIP. Kiểm tra cấu trúc file đã qua; Tester vẫn mô phỏng.
+          và tải ZIP. Đọc bằng chứng trình duyệt cùng báo cáo Tester/Reviewer
+          bên dưới trước khi duyệt.
         </p>
       )}
       <details
@@ -153,6 +154,7 @@ export function ArtifactView({
       </details>
       <QualityReport
         title="Tester AI"
+        browserChecked={!!artifact.content.browser_report}
         value={
           artifact.kind === "tester_report"
             ? artifact.content.specification
@@ -161,6 +163,7 @@ export function ArtifactView({
       />
       <QualityReport
         title="Reviewer AI"
+        browserChecked={!!artifact.content.browser_report}
         value={artifact.content.reviewer_report}
       />
     </article>

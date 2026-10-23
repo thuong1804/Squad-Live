@@ -37,7 +37,9 @@ export function guidanceFor(run: Run) {
         ? "Phê duyệt để Dev dùng AI lập kế hoạch website. Yêu cầu chỉnh sửa để BA phân tích lại."
         : run.status === "plan_approval"
           ? "Phê duyệt để Dev dùng AI sinh HTML/CSS/JS. Kết quả sẽ có Preview và tải ZIP."
-          : "Xem Preview và mã nguồn trong Kết quả website trước khi phê duyệt. Chưa chạy kiểm thử trình duyệt; bạn có thể yêu cầu Dev lập lại kế hoạch và tạo bản mới.",
+          : run.snapshot.browser_checks_version
+            ? "Đọc kết quả Chromium và hai báo cáo AI, sau đó tự kiểm tra Preview trước khi phê duyệt. Có thể yêu cầu Dev tạo bản mới."
+            : "Xem Preview và mã nguồn trong Kết quả website trước khi phê duyệt. Chưa chạy kiểm thử trình duyệt; bạn có thể yêu cầu Dev lập lại kế hoạch và tạo bản mới.",
   };
 }
 
@@ -45,8 +47,23 @@ export function WorkflowProgress({ run }: { run: Run }): React.JSX.Element {
   const steps: ReadonlyArray<readonly [string, string, string]> = run.snapshot
     .quality_prompt_version
     ? [
-        ...baseSteps.slice(0, 6),
-        ["testing_in_progress", "Tester AI", "Phân tích mã nguồn"],
+        ...baseSteps.slice(0, 5),
+        [
+          "checks_in_progress",
+          run.snapshot.browser_checks_version
+            ? "Kiểm tra trình duyệt"
+            : "Kiểm tra",
+          run.snapshot.browser_checks_version
+            ? "Chromium · Desktop/Mobile"
+            : "Kiểm tra file",
+        ],
+        [
+          "testing_in_progress",
+          "Tester AI",
+          run.snapshot.browser_checks_version
+            ? "Phân tích mã và bằng chứng"
+            : "Phân tích mã nguồn",
+        ],
         ["reviewing_in_progress", "Reviewer AI", "Đánh giá độc lập"],
         baseSteps[7],
       ]
@@ -84,7 +101,9 @@ export function WorkflowProgress({ run }: { run: Run }): React.JSX.Element {
           <p>
             {completed
               ? liveSite
-                ? "Website đã được PM duyệt. Xem Preview hoặc tải mã nguồn trong Kết quả website. Chưa xác minh bằng kiểm thử trình duyệt."
+                ? run.snapshot.browser_checks_version
+                  ? "Website đã được PM duyệt. Xem ảnh kiểm tra Chromium, Preview và tải mã nguồn trong Kết quả website."
+                  : "Website đã được PM duyệt. Xem Preview hoặc tải mã nguồn trong Kết quả website. Chưa xác minh bằng kiểm thử trình duyệt."
                 : "Kết quả hiện có là tài liệu và lịch sử duyệt. Dev/Tester mô phỏng nên chưa có file HTML, code hoặc trang preview."
               : cancelled
                 ? "Luồng đã dừng. Tài liệu và quyết định trước đó vẫn được giữ trong lịch sử."

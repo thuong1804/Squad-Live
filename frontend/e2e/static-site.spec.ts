@@ -64,9 +64,20 @@ test("static site requires both approvals, previews isolated JS, downloads and k
   await expect(page.locator(".review-kicker")).toHaveText(
     "Lần duyệt 3/3 · Đánh giá cuối của PM",
   );
-  await expect(page.getByRole("heading", { name: "Tester AI", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Reviewer AI", exact: true })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Reviewer AI" })).toContainText("Chưa chạy kiểm thử trình duyệt");
+  await expect(
+    page.getByRole("heading", { name: "Tester AI", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Reviewer AI", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("region", { name: "Reviewer AI" })).toContainText(
+    "kết quả Chromium",
+  );
+  await expect(
+    page.getByRole("region", { name: "Kiểm thử trình duyệt" }),
+  ).toBeVisible();
+  await expect(page.getByAltText(/Ảnh chụp desktop/)).toBeVisible();
+  await expect(page.getByAltText(/Ảnh chụp mobile/)).toBeVisible();
   await page.getByRole("tab", { name: "Danh sách file", exact: true }).focus();
   await page.keyboard.press("ArrowRight");
   await expect(

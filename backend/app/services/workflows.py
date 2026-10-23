@@ -146,13 +146,14 @@ def start(session, item_id, key, user, *, mode="mock", settings=None, connection
             from app.agents.dev import PROMPT_VERSION as DEV_PROMPT_VERSION
 
             snapshot.update(
-                version="static-site-v2",
+                version="static-site-v3",
+                browser_checks_version="browser-checks-v1",
                 quality_prompt_version="site-quality-v1",
                 mode=mode,
                 dev_prompt_version=DEV_PROMPT_VERSION,
                 notice=(
                     "BA and Dev generate a website; Tester and Reviewer assess source with AI. "
-                    "No browser tests executed."
+                    "Fixed Chromium checks run before their assessments; PM remains final reviewer."
                 ),
             )
             snapshot["automatic"]["testing_in_progress"] = "reviewing_in_progress"

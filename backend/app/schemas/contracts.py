@@ -62,8 +62,26 @@ class ProjectRead(Output):
     description: str
     owner: str
     status: Literal["active", "archived"]
+    repository_path: str | None
     created_at: datetime
     updated_at: datetime
+
+
+class RepositoryConnect(Input):
+    path: str = Field(min_length=1, max_length=4096)
+
+
+class RepositoryRead(Output):
+    path: str
+    branch: str | None
+    head: str
+    dirty: bool
+    files: list[str]
+
+
+class RepositoryFileRead(Output):
+    path: str
+    content: str
 
 
 class WorkItemCreate(Input):

@@ -1497,6 +1497,116 @@ textarea {
     font-size: 12px;
   }
 }
+
+.browser-evidence {
+  margin: 24px 0;
+  padding: 22px;
+  border: 1px solid #dbe3f1;
+  border-radius: 12px;
+  background: #f8faff;
+}
+.browser-evidence .section-heading h3 {
+  font-size: 17px;
+}
+.browser-evidence .section-heading p {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+.browser-evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.browser-viewport {
+  min-width: 0;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #dfe5ef;
+  border-radius: 9px;
+}
+.browser-viewport header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 13px 16px;
+  border-bottom: 1px solid #e8ecf4;
+}
+.browser-viewport header strong {
+  display: block;
+  font-size: 13px;
+}
+.browser-viewport header small {
+  display: block;
+  font-size: 11px;
+  margin-top: 3px;
+}
+.browser-viewport img {
+  display: block;
+  width: 100%;
+  height: 210px;
+  object-fit: contain;
+  object-position: top center;
+  background: #e8edf5;
+}
+.browser-image-detail {
+  padding: 0 16px 10px;
+}
+.browser-image-detail summary {
+  font-size: 11px;
+  color: #4f46e5;
+  padding: 10px 0;
+}
+.browser-viewport .browser-image-detail img {
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 70vh;
+  margin: 4px auto 12px;
+  object-fit: contain;
+  border: 1px solid #e5e9f1;
+  border-radius: 6px;
+}
+.browser-viewport ul {
+  margin: 0;
+  padding: 13px 18px 13px 36px;
+  list-style: disc;
+}
+.browser-viewport li {
+  font-size: 11px;
+  line-height: 1.8;
+  color: #54627b;
+}
+.browser-viewport details {
+  margin: 0 16px 14px;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.browser-evidence .field-hint {
+  margin-bottom: 0;
+  line-height: 1.7;
+}
+.browser-evidence-pending {
+  padding: 13px 16px;
+  margin: 18px 0;
+  border: 1px dashed #c7d2e5;
+  border-radius: 8px;
+  color: #68758d;
+  font-size: 12px;
+}
+@media (max-width: 850px) {
+  .browser-evidence-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 700px) {
+  .browser-evidence {
+    padding: 15px;
+  }
+  .browser-evidence .section-heading {
+    align-items: flex-start;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1697,7 +1807,97 @@ textarea {
   padding: 8px 10px;
   border-bottom: 1px solid #edf0f5;
 }
+.repository-heading,
+.repository-connect,
+.repository-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.repository-heading {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.repository-heading p {
+  margin: 6px 0 20px;
+}
+.repository-chooser > p {
+  margin: 12px 0 18px;
+  color: #52627b;
+}
+.repository-chooser summary {
+  cursor: pointer;
+  margin-bottom: 14px;
+}
+.repository-connect input {
+  flex: 1;
+  min-width: 0;
+}
+.repository-meta {
+  flex-wrap: wrap;
+  margin: 8px 0 18px;
+  font-size: 13px;
+  color: #52627b;
+}
+.repository-meta span {
+  overflow-wrap: anywhere;
+}
+.repository-browser {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 16px;
+  min-height: 320px;
+}
+.repository-files,
+.repository-preview {
+  min-width: 0;
+  border: 1px solid #e1e6ef;
+  border-radius: 10px;
+  padding: 16px;
+}
+.repository-file-list {
+  max-height: 430px;
+  overflow: auto;
+  margin-top: 12px;
+}
+.repository-file {
+  width: 100%;
+  display: block;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  padding: 9px;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.repository-file:hover,
+.repository-file.selected {
+  background: #edf2f8;
+}
+.repository-preview h3 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.repository-preview pre {
+  max-height: 460px;
+  overflow: auto;
+  margin: 0;
+  padding: 14px;
+  background: #f7f8fc;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.6;
+}
 @media (max-width: 700px) {
+  .repository-browser {
+    grid-template-columns: 1fr;
+  }
+  .repository-heading,
+  .repository-connect {
+    flex-wrap: wrap;
+  }
   .quality-report {
     padding: 18px 14px;
   }

@@ -181,7 +181,7 @@ export function ItemPage({ id }: { id: string }): React.JSX.Element {
         />
         <p>
           {mode === "static_site"
-            ? "BA phân tích, Dev sinh HTML/CSS/JS, Tester và Reviewer đánh giá mã nguồn bằng kết nối AI đã chọn. Có Preview và tải ZIP. Chưa chạy test trình duyệt. Mỗi bước AI sử dụng quota của key; PM duyệt cuối."
+            ? "BA phân tích, Dev sinh HTML/CSS/JS. Chromium kiểm tra tải trang desktop/mobile và lưu ảnh; Tester và Reviewer đánh giá mã cùng bằng chứng. Có Preview và ZIP. Mỗi bước AI sử dụng quota của key; PM duyệt cuối."
             : "Khi chọn BA thật, yêu cầu và phản hồi sẽ được gửi tới nhà cung cấp AI. Dev và Tester vẫn mô phỏng."}
         </p>
       </section>

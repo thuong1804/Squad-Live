@@ -6,7 +6,7 @@ export const statuses = {
   plan_in_progress: ["Đang lập kế hoạch", "active"],
   plan_approval: ["Chờ duyệt kế hoạch", "approval"],
   implementation_in_progress: ["Đang triển khai", "active"],
-  checks_in_progress: ["Đang chạy kiểm tra", "active"],
+  checks_in_progress: ["Chromium đang kiểm tra", "active"],
   repair_in_progress: ["Đang sửa lỗi", "active"],
   pr_created: ["Đã tạo PR", "active"],
   testing_in_progress: ["Đang kiểm thử", "active"],

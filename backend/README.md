@@ -41,6 +41,8 @@ và `/auth/session` phục vụ đăng nhập; POST `/auth/logout` thu hồi phi
 | `/dashboard` | GET số lượng và tối đa 10 bản ghi mỗi danh sách gần đây/chờ duyệt |
 | `/projects` | GET danh sách phân trang, POST tạo |
 | `/projects/{id}` | GET, PATCH thông tin/status active hoặc archived |
+| `/projects/{id}/repository` | POST kết nối, GET xem trạng thái/file, DELETE ngắt kết nối |
+| `/projects/{id}/repository/file?path=...` | GET nội dung file tracked dạng UTF-8 |
 | `/projects/{id}/work-items` | GET phân trang, POST tạo |
 | `/work-items/{id}` | GET chi tiết |
 | `/work-items/{id}/workflow-runs` | GET phân trang, POST bắt đầu với `Idempotency-Key` |
@@ -80,7 +82,7 @@ tiếp tục từ trạng thái đã commit. DB lỗi được backoff tối đa
 khởi động lại sau khi DB phục hồi. Không có API tự ý sửa trạng thái/failure injection.
 SQLite chỉ dùng cho unit/API tests, không thay thế kiểm thử concurrency PostgreSQL.
 
-Migration hiện tại: `0005_google_auth`. Không sửa snapshot v1. Downgrade bị chặn
+Migration hiện tại: `0006_project_repository`. Không sửa snapshot v1. Downgrade bị chặn
 nếu nhiều revision không thể biểu diễn bằng schema v1 mà không mất lịch sử.
 
 ## Validation

@@ -52,7 +52,7 @@ def create_app(settings: Settings | None = None, engine=None):
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=True,
-        allow_methods=["GET", "POST", "PATCH"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
         allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "X-CSRF-Token"],
     )
 
@@ -93,7 +93,7 @@ def create_app(settings: Settings | None = None, engine=None):
             with engine.connect() as connection:
                 connection.execute(text("SELECT 1"))
                 version = connection.scalar(text("SELECT version_num FROM alembic_version"))
-                if version != "0005_google_auth":
+                if version != "0006_project_repository":
                     return error_response(503, "not_ready", "Database migrations are required")
         except SQLAlchemyError:
             return error_response(503, "not_ready", "Database is unavailable or not migrated")

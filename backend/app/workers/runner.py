@@ -50,6 +50,8 @@ def tick(sessions, settings=None, provider=None) -> bool:
             or run.snapshot["mode"] == "static_site"
             and (
                 run.status in STAGES
+                or run.snapshot.get("browser_checks_version")
+                and run.status == "checks_in_progress"
                 or run.snapshot.get("quality_prompt_version")
                 and run.status in QUALITY_STAGES
             )

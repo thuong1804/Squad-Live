@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { DataBoundary } from "@/components/shared/data-boundary";
 import { ErrorNotice, Pagination } from "@/components/shared/business-ui";
+import { BrowserEvidence } from "./browser-report";
 
 const versionSchema = z.object({
   id: z.string(),
@@ -61,6 +62,15 @@ function WebsiteVersion({
           ? " · Bản cũ, không phải kết quả của bản chỉnh sửa hiện tại"
           : ""}
       </p>
+      {run.snapshot.browser_checks_version && (
+        <DataBoundary>
+          <BrowserEvidence
+            run={run}
+            websiteId={artifactId}
+            revision={site.revision}
+          />
+        </DataBoundary>
+      )}
       <Tabs
         value={tab}
         onValueChange={(value) => setTab(value as "files" | "preview")}
@@ -109,8 +119,8 @@ function WebsiteVersion({
           </div>
           <p className="muted">
             Preview chạy cách ly. Kết nối API, gửi form, popup và tài nguyên bên
-            ngoài bị chặn. Đây là bản xem để PM kiểm tra, chưa phải kết quả
-            Tester.
+            ngoài bị chặn. Đây là bản xem để PM kiểm tra tương tác; kết quả
+            Chromium cố định được hiển thị riêng bên trên.
           </p>
           <div className="website-preview-wrap">
             <iframe

@@ -1,3 +1,4 @@
+from ipaddress import ip_address
 from typing import Annotated
 from uuid import UUID
 
@@ -36,6 +37,9 @@ from app.schemas.contracts import (
     ProjectCreate,
     ProjectRead,
     ProjectUpdate,
+    RepositoryConnect,
+    RepositoryFileRead,
+    RepositoryRead,
     RetryCreate,
     RunCreate,
     RunRead,
@@ -43,7 +47,7 @@ from app.schemas.contracts import (
     WorkItemCreate,
     WorkItemRead,
 )
-from app.services import ai_access, projects, sites, workflows
+from app.services import ai_access, projects, repositories, sites, workflows
 
 router = APIRouter(prefix="/api/v1")
 
@@ -166,6 +170,39 @@ def get_project(project_id: UUID, db: DB, user: User):
 @router.patch("/projects/{project_id}", response_model=ProjectRead)
 def update_project(project_id: UUID, data: ProjectUpdate, db: DB, user: User):
     return projects.update_project(db, str(project_id), data, user)
+
+
+@router.post("/projects/{project_id}/repository", response_model=ProjectRead)
+def connect_repository(project_id: UUID, data: RepositoryConnect, db: DB, user: User):
+    return repositories.connect(db, str(project_id), user, data.path)
+
+
+@router.post("/projects/{project_id}/repository/pick", response_model=ProjectRead)
+def pick_repository(project_id: UUID, request: Request, db: DB, user: User):
+    try:
+        local_client = request.client is not None and ip_address(request.client.host).is_loopback
+    except ValueError:
+        local_client = False
+    if not local_client:
+        raise DomainError(403, "local_only", "Folder picker is only available on this computer")
+    return repositories.pick_and_connect(db, str(project_id), user)
+
+
+@router.delete("/projects/{project_id}/repository", response_model=ProjectRead)
+def disconnect_repository(project_id: UUID, db: DB, user: User):
+    return repositories.disconnect(db, str(project_id), user)
+
+
+@router.get("/projects/{project_id}/repository", response_model=RepositoryRead)
+def inspect_repository(project_id: UUID, db: DB, user: User, response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return repositories.inspect(db, str(project_id), user)
+
+
+@router.get("/projects/{project_id}/repository/file", response_model=RepositoryFileRead)
+def read_repository_file(project_id: UUID, path: str, db: DB, user: User, response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return repositories.read_file(db, str(project_id), user, path)
 
 
 @router.post("/projects/{project_id}/work-items", response_model=WorkItemRead, status_code=201)
@@ -381,6 +418,23 @@ def download_website(run_id: UUID, artifact_id: UUID, db: DB, user: User):
             "X-Content-Type-Options": "nosniff",
         },
     )
+
+
+@router.get("/workflow-runs/{run_id}/websites/{artifact_id}/browser-report")
+def website_browser_report(run_id: UUID, artifact_id: UUID, db: DB, user: User, response: Response):
+    run = workflows.run_for(db, str(run_id), user)
+    sites.site_for(db, run, str(artifact_id))
+    report = db.scalar(
+        select(Artifact)
+        .where(
+            Artifact.run_id == str(run_id),
+            Artifact.kind == "browser_report",
+            Artifact.content["website_artifact_id"].as_string() == str(artifact_id),
+        )
+        .order_by(Artifact.created_at.desc(), Artifact.id.desc())
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return {"report": report.content["specification"] if report else None}
 
 
 @router.post("/workflow-runs/{run_id}/retry", response_model=RunRead, status_code=202)

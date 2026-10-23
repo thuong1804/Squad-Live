@@ -7,8 +7,8 @@ from pydantic import ValidationError
 
 from app.agents.contracts import Generation, ProviderError
 from app.agents.dev import SitePlan, StaticSite
-from app.agents.quality import Assessment
 from app.agents.execution import claim, execute
+from app.agents.quality import Assessment
 from app.models.entities import AgentRun, WorkflowRun
 from app.workers.runner import tick
 from tests.conftest import OTHER_TOKEN
@@ -28,7 +28,7 @@ ASSESSMENT = {
     "browser_tests_executed": False,
     "findings": [],
     "manual_checks": ["Click Count: the displayed number should increase."],
-    "limitations": ["No browser executed"],
+    "limitations": ["AI did not run browser; refer to the separate Chromium report"],
 }
 SITE = {
     "title": "Todo page",
@@ -126,6 +126,12 @@ def test_full_site_approved_inputs_download_owner_isolation_and_revisions(client
     assert len(site["files"]) == 3
     assert "Content-Security-Policy" in site["preview_html"]
     assert "data:text/javascript;base64," in site["preview_html"]
+    browser_report = client.get(url + "/browser-report").json()["report"]
+    assert browser_report["browser_tests_executed"] is True
+    assert [entry["viewport"] for entry in browser_report["viewports"]] == ["desktop", "mobile"]
+    assert all(
+        entry["loaded"] and entry["screenshot_base64"] for entry in browser_report["viewports"]
+    )
     assert provider.contexts[-1]["plan_artifact_id"] == approved_plan
     assert provider.contexts[-1]["approved_plan"]["specification"] == PLAN
     download = client.get(url + "/download")
@@ -138,6 +144,7 @@ def test_full_site_approved_inputs_download_owner_isolation_and_revisions(client
         "/websites",
         f"/websites/{version['id']}",
         f"/websites/{version['id']}/download",
+        f"/websites/{version['id']}/browser-report",
     ]:
         assert (
             client.get(
@@ -165,6 +172,7 @@ def test_full_site_approved_inputs_download_owner_isolation_and_revisions(client
     for _ in range(4):
         tick(app.state.sessions, config, provider)
     assert client.get(url).json() == site
+    assert client.get(url + "/browser-report").json()["report"] == browser_report
     assert len(client.get(f"{path}/websites").json()["items"]) == 2
     assert (
         client.post(f"{path}/approvals", json={**old_gate, "decision": "approve"}).status_code

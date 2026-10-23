@@ -8,7 +8,7 @@ from time import monotonic
 
 from sqlalchemy import select
 
-from app.agents import dev, quality
+from app.agents import browser, dev, quality
 from app.agents.ba import PROMPT_VERSION, build_context
 from app.agents.contracts import ProviderError, RequirementSpecification
 from app.agents.providers import make_provider
@@ -27,6 +27,12 @@ from app.services import ai_access
 from app.services.workflows import event, fail_execution, transition
 
 ERROR_MESSAGES = {
+    "browser_unavailable": (
+        "Browser checks could not run. Verify Node, Playwright and Chromium installation."
+    ),
+    "browser_timeout": (
+        "Browser checks exceeded the time limit. Inspect generated scripts before retrying."
+    ),
     "provider_service_unavailable": (
         "Nhà cung cấp AI tạm thời không sẵn sàng (HTTP 503). "
         "Hãy chờ rồi thử lại hoặc chọn kết nối với model khác. "
@@ -95,9 +101,12 @@ def failure(session, run, agent, code, retryable=True):
 
 
 def claim(session, run, settings) -> Job | None:
-    role = {**dev.STAGES, **quality.STAGES}[run.status]
+    is_browser = run.status == "checks_in_progress"
+    role = {**dev.STAGES, **quality.STAGES, "checks_in_progress": "BROWSER"}[run.status]
     prompt_version = (
-        PROMPT_VERSION
+        browser.PROMPT_VERSION
+        if is_browser
+        else PROMPT_VERSION
         if role == "BA"
         else quality.PROMPT_VERSION
         if run.status in quality.STAGES
@@ -122,12 +131,17 @@ def claim(session, run, settings) -> Job | None:
         revision=run.revision,
         provider=run.snapshot["provider"],
         model=run.snapshot["model"],
-        prompt_version=run.snapshot["prompt_version"]
-        if role == "BA"
-        else run.snapshot.get("quality_prompt_version")
-        if run.status in quality.STAGES
-        else run.snapshot["dev_prompt_version"],
-        lease_expires_at=now() + timedelta(seconds=settings.llm_timeout_seconds + 30),
+        prompt_version=(
+            run.snapshot.get("browser_checks_version")
+            if is_browser
+            else run.snapshot["prompt_version"]
+            if role == "BA"
+            else run.snapshot.get("quality_prompt_version")
+            if run.status in quality.STAGES
+            else run.snapshot["dev_prompt_version"]
+        ),
+        lease_expires_at=now()
+        + timedelta(seconds=90 if is_browser else settings.llm_timeout_seconds + 30),
         connection_id=run.connection_id,
     )
     session.add(agent)
@@ -138,12 +152,18 @@ def claim(session, run, settings) -> Job | None:
     item = session.get(WorkItem, run.work_item_id)
     project = session.get(Project, item.project_id)
     try:
-        selected = ai_access.resolve(session, project.owner, settings, run.connection_id)
+        selected = (
+            settings
+            if is_browser
+            else ai_access.resolve(session, project.owner, settings, run.connection_id)
+        )
         if role == "DEV_BUILD":
             selected = selected.model_copy(
                 update={"llm_max_output_tokens": settings.dev_max_output_tokens}
             )
-        agent.provider, agent.model = selected.llm_provider, selected.llm_model
+        agent.provider, agent.model = (
+            ("browser", "chromium") if is_browser else (selected.llm_provider, selected.llm_model)
+        )
     except DomainError as error:
         code = (
             "configuration_missing"
@@ -163,18 +183,33 @@ def claim(session, run, settings) -> Job | None:
         .order_by(Approval.created_at.desc(), Approval.id.desc())
     )
     try:
-        context = (
-            build_context(
-                project,
-                item,
-                previous.content.get("specification") if previous else None,
-                feedback.comment if feedback else None,
+        if is_browser:
+            from app.services.sites import latest_site, preview
+
+            site = latest_site(session, run)
+            if site is None:
+                raise ProviderError("approved_input_missing", False)
+            context = json.dumps(
+                {
+                    "website_artifact_id": site.id,
+                    "preview_html": preview(
+                        dev.StaticSite.model_validate(site.content["specification"])
+                    ),
+                }
             )
-            if role == "BA"
-            else quality.context(session, run)
-            if run.status in quality.STAGES
-            else dev.context(session, run, feedback.comment if feedback else None)
-        )
+        else:
+            context = (
+                build_context(
+                    project,
+                    item,
+                    previous.content.get("specification") if previous else None,
+                    feedback.comment if feedback else None,
+                )
+                if role == "BA"
+                else quality.context(session, run)
+                if run.status in quality.STAGES
+                else dev.context(session, run, feedback.comment if feedback else None)
+            )
         context = redact(context, selected)
     except ProviderError as error:
         failure(session, run, agent, error.code, error.retryable)
@@ -189,6 +224,7 @@ def execute(sessions, job: Job, settings, provider=None) -> None:
     started = monotonic()
     result, error = None, None
     output_type = {
+        "checks_in_progress": browser.BrowserReport,
         "ba_in_progress": RequirementSpecification,
         "plan_in_progress": dev.SitePlan,
         "implementation_in_progress": dev.StaticSite,
@@ -210,7 +246,11 @@ def execute(sessions, job: Job, settings, provider=None) -> None:
         }
     )
     try:
-        result = (provider or make_provider(settings, **options)).generate(job.context, job.model)
+        result = (
+            browser.generate(job.context)
+            if job.step == "checks_in_progress"
+            else (provider or make_provider(settings, **options)).generate(job.context, job.model)
+        )
         # Validate even injected providers; redact known credentials before persistence.
         specification = output_type.model_validate_json(
             redact(result.specification.model_dump_json(), settings)
@@ -266,10 +306,30 @@ def execute(sessions, job: Job, settings, provider=None) -> None:
                     "AI-generated output for human review. No code or tests executed on the server."
                 ),
             }
-            if job.step in quality.STAGES:
+            if job.step == "checks_in_progress":
+                content["source"] = "browser"
+                content["notice"] = "Executed fixed Chromium checks; not full acceptance tests."
+                content["website_artifact_id"] = json.loads(job.context)["website_artifact_id"]
+                report = Artifact(
+                    id=new_id(),
+                    run_id=run.id,
+                    gate_id=new_id(),
+                    kind="browser_report",
+                    revision=run.revision,
+                    attempt=run.attempt,
+                    content=content,
+                )
+                session.add(report)
+                session.flush()
+                artifact_id = report.id
+                transition(session, run, "testing_in_progress")
+            elif job.step in quality.STAGES:
                 inputs = json.loads(job.context)
                 for name in ("website_artifact_id", "requirements_artifact_id", "plan_artifact_id"):
                     content[name] = inputs[name]
+                if "browser_artifact_id" in inputs:
+                    content["browser_artifact_id"] = inputs["browser_artifact_id"]
+                    content["browser_report"] = inputs["browser_report"]
                 if job.step == "testing_in_progress":
                     report = Artifact(
                         id=new_id(),

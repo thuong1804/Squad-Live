@@ -12,6 +12,7 @@ sinh HTML/CSS/JS, xem Preview và tải ZIP. Tester vẫn mô phỏng; chưa t�
 - [Phase 3: cấu hình và demo BA dùng AI](docs/05-BA-AGENT.md)
 - [Đăng nhập Google và chuyển dữ liệu PM cũ](docs/06-GOOGLE-LOGIN.md)
 - [Tạo website tĩnh · BA + Dev thật](docs/07-STATIC-WEBSITE.md)
+- [Kết nối repository Git local (chỉ đọc)](docs/08-LOCAL-GIT-REPOSITORY.md)
 - [Frontend](frontend/README.md) · [Backend](backend/README.md)
 
 ## Khởi động local trên Windows

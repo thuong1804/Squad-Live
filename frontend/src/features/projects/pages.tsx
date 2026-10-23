@@ -9,6 +9,7 @@ import {
   itemsOptions,
 } from "@/lib/business-api";
 import { Button } from "@/components/ui/button";
+import { RepositoryPanel } from "./repository-panel";
 import { EmptyState } from "@/components/shared/page-layout";
 import {
   ErrorNotice,
@@ -151,12 +152,8 @@ export function ProjectPage({ id }: { id: string }): React.JSX.Element {
         )}
       </div>
       <ErrorNotice error={error || archive.error} />
+      <RepositoryPanel project={project} />
       <section className="panel content-panel">
-        <h2>Kết nối repository</h2>
-        <p>
-          Chưa kết nối. BA có thể phân tích yêu cầu bằng AI; phiên bản này chưa
-          sửa code hoặc tạo PR.
-        </p>
         <Button
           variant="outline"
           disabled={archive.isPending}

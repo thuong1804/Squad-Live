@@ -4,6 +4,8 @@ const messages: Record<number, string> = {
   403: "Bạn chưa có quyền thực hiện thao tác này.",
   404: "Không tìm thấy tài nguyên hoặc endpoint chưa được triển khai.",
   409: "Trạng thái đã thay đổi. Hãy tải lại dữ liệu trước khi thử lại.",
+  413: "Repository quá lớn để xem trong phiên bản này.",
+  415: "Chỉ có thể xem file văn bản UTF-8 nhỏ hơn 256 KiB.",
   422: "Dữ liệu chưa hợp lệ. Vui lòng kiểm tra các trường đã nhập.",
 };
 const codeMessages: Record<string, string> = {
@@ -23,6 +25,20 @@ const codeMessages: Record<string, string> = {
     "Nhà cung cấp AI tạm thời không sẵn sàng (HTTP 503). Chờ rồi thử lại hoặc chọn model khác.",
   model_unavailable:
     "Model không khả dụng hoặc không hỗ trợ API đang dùng. Hãy chọn model khác trong Cài đặt AI.",
+  invalid_repository_path:
+    "Hãy nhập đường dẫn tuyệt đối tới thư mục gốc Git trên máy chạy backend.",
+  invalid_repository:
+    "Thư mục cần là một Git working tree đã có ít nhất một commit.",
+  repository_unavailable:
+    "Không đọc được repository đã kết nối. Kiểm tra thư mục và thử lại.",
+  repository_too_large:
+    "Repository có quá nhiều file tracked để xem trong phiên bản này.",
+  file_not_text:
+    "Chỉ có thể xem file văn bản UTF-8 nhỏ hơn 256 KiB.",
+  folder_picker_unavailable:
+    "Không mở được hộp thoại chọn thư mục trên máy chạy backend. Hãy nhập đường dẫn thủ công.",
+  local_only:
+    "Chỉ có thể chọn thư mục khi dùng web trên cùng máy với backend.",
 };
 
 export class ApiError extends Error {
@@ -58,11 +74,12 @@ export function createApiClient(baseUrl: string) {
     async request<T>(
       path: string,
       parse: (body: unknown) => T,
-      init: RequestInit = {},
+      init: RequestInit & { timeoutMs?: number } = {},
     ): Promise<T> {
       if (!path.startsWith("/") || path.startsWith("//") || path.includes("\\"))
         throw new ApiError(0, "Đường dẫn API không hợp lệ.");
       let response: Response;
+      const { timeoutMs = 15000, ...fetchInit } = init;
       const headers = new Headers(init.headers);
       headers.set("Accept", "application/json");
       if (init.body) headers.set("Content-Type", "application/json");
@@ -73,11 +90,11 @@ export function createApiClient(baseUrl: string) {
         headers.set("X-CSRF-Token", getCsrfToken());
       try {
         response = await fetch(`${baseUrl.replace(/\/$/, "")}${path}`, {
-          ...init,
+          ...fetchInit,
           credentials: "include",
           signal: init.signal
-            ? AbortSignal.any([init.signal, AbortSignal.timeout(15000)])
-            : AbortSignal.timeout(15000),
+            ? AbortSignal.any([init.signal, AbortSignal.timeout(timeoutMs)])
+            : AbortSignal.timeout(timeoutMs),
           headers,
         });
       } catch (error) {
